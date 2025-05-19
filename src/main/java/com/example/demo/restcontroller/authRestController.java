@@ -1,7 +1,8 @@
 package com.example.demo.restcontroller;
 
-import com.example.demo.dto.OtpVerificationRequest;
 import com.example.demo.dto.UserDto;
+import com.example.demo.dto.LoginRequest;
+import com.example.demo.dto.OtpVerificationRequest;
 import com.example.demo.model.Otp;
 import com.example.demo.model.User;
 import com.example.demo.repository.OtpRepository;
@@ -38,6 +39,7 @@ public class AuthRestController {
     @Autowired
     private JwtService jwtService;
 
+    // Existing registration endpoint
     @PostMapping("/register")
     @Transactional
     public ResponseEntity<String> initiateRegistration(@Valid @RequestBody User user, BindingResult result) {
@@ -70,6 +72,7 @@ public class AuthRestController {
         return ResponseEntity.ok("OTP sent to " + user.getEmail());
     }
 
+    // Existing OTP verification endpoint
     @PostMapping("/verify-otp")
     @Transactional
     public ResponseEntity<String> verifyOtpAndRegister(@Valid @RequestBody OtpVerificationRequest request, BindingResult result) {
@@ -118,6 +121,30 @@ public class AuthRestController {
         return ResponseEntity.ok("Registration successful. Token: " + token);
     }
 
+    // New login endpoint
+    @PostMapping("/login")
+    public ResponseEntity<String> login(@RequestBody LoginRequest loginRequest) {
+        if (loginRequest.getEmail() == null || loginRequest.getPassword() == null) {
+            return ResponseEntity.badRequest().body("Email and password are required.");
+        }
+
+        Optional<User> userOptional = userRepo.findByEmail(loginRequest.getEmail());
+        if (!userOptional.isPresent()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid email or password.");
+        }
+
+        User user = userOptional.get();
+        String hashedPassword = DigestUtils.sha3_256Hex(loginRequest.getPassword());
+        if (!user.getPassword().equals(hashedPassword)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid email or password.");
+        }
+
+        // Generate JWT
+        String token = jwtService.generateToken(user.getEmail());
+        return ResponseEntity.ok("Login successful. Token: " + token);
+    }
+
+    // Existing test endpoint
     @GetMapping("/test")
     public String getTest() {
         return "test api";
