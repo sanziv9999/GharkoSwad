@@ -144,7 +144,8 @@ public class AuthRestController {
         return ResponseEntity.ok("Login successful. Token: " + token);
     }
 
-    // Existing test endpoint
+    
+    
     @GetMapping("/test")
     public String getTest() {
         return "test api";
