@@ -1,8 +1,10 @@
 package com.example.demo.restcontroller;
 
 import com.example.demo.dto.UserDto;
+import com.example.demo.dto.EmailRequestDto;
 import com.example.demo.dto.LoginRequest;
 import com.example.demo.dto.OtpVerificationRequest;
+import com.example.demo.dto.ResetPasswordRequestDto;
 import com.example.demo.model.Otp;
 import com.example.demo.model.User;
 import com.example.demo.repository.OtpRepository;
@@ -120,6 +122,8 @@ public class AuthRestController {
 
         return ResponseEntity.ok("Registration successful. Token: " + token);
     }
+    
+    
 
     // New login endpoint
     @PostMapping("/login")
@@ -142,6 +146,69 @@ public class AuthRestController {
         // Generate JWT
         String token = jwtService.generateToken(user.getEmail());
         return ResponseEntity.ok("Login successful. Token: " + token);
+    }
+    
+    @PostMapping("/forgot-password")
+    @Transactional
+    public ResponseEntity<String> forgotPassword(@RequestBody EmailRequestDto emailRequest) {
+        if (emailRequest.getEmail() == null) {
+            return ResponseEntity.badRequest().body("Email is required.");
+        }
+
+        Optional<User> userOptional = userRepo.findByEmail(emailRequest.getEmail());
+        if (!userOptional.isPresent()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Email not found.");
+        }
+
+        String otpCode = String.format("%06d", new Random().nextInt(999999));
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expiresAt = now.plusMinutes(5);
+
+        otpRepo.deleteByEmail(emailRequest.getEmail());
+        Otp otp = new Otp(emailRequest.getEmail(), otpCode, now, expiresAt);
+        otpRepo.save(otp);
+
+        try {
+            emailService.sendOtpEmail(emailRequest.getEmail(), otpCode);
+        } catch (MessagingException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to send OTP email: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok("OTP sent to " + emailRequest.getEmail());
+    }
+
+    
+    @PostMapping("/reset-password")
+    @Transactional
+    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequestDto request, BindingResult result) {
+        if (result.hasErrors()) {
+            return ResponseEntity.badRequest().body("Invalid input: " + result.getAllErrors());
+        }
+
+        Optional<Otp> otpOptional = otpRepo.findByEmailAndOtpCode(request.getEmail(), request.getOtpCode());
+        if (!otpOptional.isPresent()) {
+            return ResponseEntity.badRequest().body("Invalid OTP or email.");
+        }
+
+        Otp otp = otpOptional.get();
+        if (LocalDateTime.now().isAfter(otp.getExpiresAt())) {
+            otpRepo.deleteByEmail(request.getEmail());
+            return ResponseEntity.badRequest().body("OTP has expired.");
+        }
+
+        Optional<User> userOptional = userRepo.findByEmail(request.getEmail());
+        if (!userOptional.isPresent()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Email not found.");
+        }
+
+        User user = userOptional.get();
+        user.setPassword(DigestUtils.sha3_256Hex(request.getNewPassword()));
+        userRepo.save(user);
+
+        otpRepo.deleteByEmail(request.getEmail());
+
+        return ResponseEntity.ok
+        		("Password reset successful.");
     }
 
     
