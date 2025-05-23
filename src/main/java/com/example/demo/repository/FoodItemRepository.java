@@ -10,11 +10,12 @@ import java.util.List;
 public interface FoodItemRepository extends JpaRepository<FoodItem, Long> {
     List<FoodItem> findByAvailableTrue();
 
-    @Query("SELECT f FROM FoodItem f WHERE f.available = true " +
-           "AND (:name IS NULL OR LOWER(f.name) LIKE LOWER(CONCAT('%', :name, '%'))) " +
+    @Query("SELECT f FROM FoodItem f WHERE f.available = :available " +
+           "AND (:name IS NULL OR LOWER(f.name) LIKE LOWER(CONCAT(:name, '%'))) " +
            "AND (:minPrice IS NULL OR f.price >= :minPrice) " +
            "AND (:maxPrice IS NULL OR f.price <= :maxPrice)")
-    List<FoodItem> findByAvailableTrueAndFilters(
+    List<FoodItem> findByAvailabilityAndFilters(
+            @Param("available") Boolean available,
             @Param("name") String name,
             @Param("minPrice") Double minPrice,
             @Param("maxPrice") Double maxPrice);

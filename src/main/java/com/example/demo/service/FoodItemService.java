@@ -15,7 +15,15 @@ public class FoodItemService {
     private FoodItemRepository foodItemRepository;
 
     public List<FoodItem> getAvailableFoods(String name, Double minPrice, Double maxPrice) {
-        return foodItemRepository.findByAvailableTrueAndFilters(name, minPrice, maxPrice);
+        return foodItemRepository.findByAvailabilityAndFilters(true, name, minPrice, maxPrice);
+    }
+
+    public List<FoodItem> getAllFoods() {
+        return foodItemRepository.findAll();
+    }
+
+    public List<FoodItem> searchFoods(Boolean available, String startsWith, Double minPrice, Double maxPrice) {
+        return foodItemRepository.findByAvailabilityAndFilters(available, startsWith, minPrice, maxPrice);
     }
 
     public FoodItem saveFood(FoodItemDto foodDto, String imagePath) {
@@ -34,5 +42,17 @@ public class FoodItemService {
         food.setImagePath(imagePath);
 
         return foodItemRepository.save(food);
+    }
+
+    public FoodItem saveFood(FoodItem food) {
+        return foodItemRepository.save(food);
+    }
+
+    public FoodItem findById(Long id) {
+        return foodItemRepository.findById(id).orElse(null);
+    }
+
+    public void deleteById(Long id) {
+        foodItemRepository.deleteById(id);
     }
 }
