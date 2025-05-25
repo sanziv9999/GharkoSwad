@@ -1,35 +1,31 @@
 package com.example.demo.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotNull;
 
 @Entity
-public class User {
+public class PendingUser {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotNull
-    @Email
     private String email;
-
-    @NotNull
     private String username;
-
-    @NotNull
     private String password;
-
     private String location;
-
-    @Column(name = "phone_number")
-    @JsonProperty("phoneNumber")
     private String phoneNumber;
+
+    public PendingUser() {}
+
+    public PendingUser(String email, String username, String password, String location, String phoneNumber) {
+        this.email = email;
+        this.username = username;
+        this.password = password;
+        this.location = location;
+        this.phoneNumber = phoneNumber;
+    }
 
     // Getters and setters
     public Long getId() { return id; }
