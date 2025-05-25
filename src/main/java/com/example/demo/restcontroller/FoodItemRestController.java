@@ -123,13 +123,13 @@ public class FoodItemRestController {
         }
     }
 
-    @PutMapping(value = "/update/{id}", consumes = {"multipart/form-data"})
+    @PatchMapping(value = "/update/{id}", consumes = {"multipart/form-data"})
     public ResponseEntity<?> updateFood(
             @PathVariable Long id,
-            @RequestPart(value = "name") String name,
+            @RequestPart(value = "name", required = false) String name,
             @RequestPart(value = "description", required = false) String description,
-            @RequestPart(value = "price") String price,
-            @RequestPart(value = "available") String available,
+            @RequestPart(value = "price", required = false) String price,
+            @RequestPart(value = "available", required = false) String available,
             @RequestPart(value = "image", required = false) MultipartFile image) {
         logger.info("Received update food request for id {}: name={}, description={}, price={}, available={}, image={}",
                 id, name, description, price, available, image != null ? image.getOriginalFilename() : "null");
@@ -141,30 +141,38 @@ public class FoodItemRestController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Food item not found");
         }
 
-        // Map individual fields to FoodItemDto
+        // Map individual fields to FoodItemDto, only if provided
         FoodItemDto foodDto = new FoodItemDto();
-        foodDto.setName(name);
-        foodDto.setDescription(description);
+        foodDto.setName(existingFood.getName()); // Default to existing value
+        foodDto.setDescription(existingFood.getDescription());
+        foodDto.setPrice(existingFood.getPrice());
+        foodDto.setAvailable(existingFood.getAvailable());
 
-        // Parse price
-        Double priceValue;
-        try {
-            priceValue = Double.parseDouble(price);
-        } catch (NumberFormatException e) {
-            logger.warn("Invalid price format: {}", price);
-            return ResponseEntity.badRequest().body("Price must be a valid number");
+        // Update only the fields that are provided
+        if (name != null) {
+            foodDto.setName(name);
         }
-        foodDto.setPrice(priceValue);
-
-        // Parse available
-        Boolean availableValue;
-        try {
-            availableValue = Boolean.parseBoolean(available);
-        } catch (Exception e) {
-            logger.warn("Invalid available format: {}", available);
-            return ResponseEntity.badRequest().body("Available must be a valid boolean (true/false)");
+        if (description != null) {
+            foodDto.setDescription(description);
         }
-        foodDto.setAvailable(availableValue);
+        if (price != null) {
+            try {
+                Double priceValue = Double.parseDouble(price);
+                foodDto.setPrice(priceValue);
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid price format: {}", price);
+                return ResponseEntity.badRequest().body("Price must be a valid number");
+            }
+        }
+        if (available != null) {
+            try {
+                Boolean availableValue = Boolean.parseBoolean(available);
+                foodDto.setAvailable(availableValue);
+            } catch (Exception e) {
+                logger.warn("Invalid available format: {}", available);
+                return ResponseEntity.badRequest().body("Available must be a valid boolean (true/false)");
+            }
+        }
 
         // Validate FoodItemDto
         Set<ConstraintViolation<FoodItemDto>> violations = validator.validate(foodDto);
@@ -191,7 +199,8 @@ public class FoodItemRestController {
                 newImagePath = fileStorageService.storeFile(image);
                 logger.info("New image uploaded: {}", newImagePath);
             }
-            // Update food item
+
+            // Update food item with the new values
             existingFood.setName(foodDto.getName());
             existingFood.setDescription(foodDto.getDescription());
             existingFood.setPrice(foodDto.getPrice());
