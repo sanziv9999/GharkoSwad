@@ -28,7 +28,7 @@ public class User {
     private String location;
 
     @Column(name = "phone_number")
-    @JsonProperty("phone_number")
+    @JsonProperty("phoneNumber")
     private String phoneNumber;
 
     // Getters and setters

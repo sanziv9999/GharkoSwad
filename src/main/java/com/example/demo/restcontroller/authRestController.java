@@ -57,13 +57,11 @@ public class AuthRestController {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Email already exists! Try a new one.");
         }
 
-        // Check if there's already a pending user with this email
         Optional<PendingUser> pendingUserOptional = pendingUserRepo.findByEmail(user.getEmail());
         if (pendingUserOptional.isPresent()) {
             pendingUserRepo.deleteByEmail(user.getEmail());
         }
 
-        // Store user data temporarily in PendingUser
         PendingUser pendingUser = new PendingUser(
             user.getEmail(),
             user.getUsername(),
@@ -73,17 +71,14 @@ public class AuthRestController {
         );
         pendingUserRepo.save(pendingUser);
 
-        // Generate 6-digit OTP
         String otpCode = String.format("%06d", new Random().nextInt(999999));
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime expiresAt = now.plusMinutes(5);
 
-        // Save OTP to database
         otpRepo.deleteByEmail(user.getEmail());
         Otp otp = new Otp(user.getEmail(), otpCode, now, expiresAt);
         otpRepo.save(otp);
 
-        // Send OTP email
         try {
             emailService.sendOtpEmail(user.getEmail(), otpCode);
         } catch (MessagingException e) {
@@ -111,7 +106,6 @@ public class AuthRestController {
             return ResponseEntity.badRequest().body("OTP has expired.");
         }
 
-        // Retrieve the pending user data
         Optional<PendingUser> pendingUserOptional = pendingUserRepo.findByEmail(request.getEmail());
         if (!pendingUserOptional.isPresent()) {
             return ResponseEntity.badRequest().body("No pending registration found for this email.");
@@ -119,13 +113,11 @@ public class AuthRestController {
 
         PendingUser pendingUser = pendingUserOptional.get();
 
-        // Check if the email already exists in the User table (just in case)
         Optional<User> existingUser = userRepo.findByEmail(request.getEmail());
         if (existingUser.isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Email already exists! Try a new one.");
         }
 
-        // Create and save the User entity
         User user = new User();
         user.setEmail(pendingUser.getEmail());
         user.setUsername(pendingUser.getUsername());
@@ -134,11 +126,9 @@ public class AuthRestController {
         user.setPhoneNumber(pendingUser.getPhoneNumber());
         userRepo.save(user);
 
-        // Clean up: Delete the OTP and pending user record
         otpRepo.deleteByEmail(request.getEmail());
         pendingUserRepo.deleteByEmail(request.getEmail());
 
-        // Generate JWT
         String token = jwtService.generateToken(user.getEmail());
 
         return ResponseEntity.ok("Registration successful. Token: " + token);
@@ -224,6 +214,41 @@ public class AuthRestController {
         otpRepo.deleteByEmail(request.getEmail());
 
         return ResponseEntity.ok("Password reset successful.");
+    }
+
+    @PatchMapping("/edit/users/{id}")
+    @Transactional
+    public ResponseEntity<String> editUser(@PathVariable Long id, @Valid @RequestBody User user, BindingResult result) {
+        if (result.hasErrors()) {
+            return ResponseEntity.badRequest().body("Invalid input: " + result.getAllErrors());
+        }
+
+        Optional<User> userOptional = userRepo.findById(id);
+        if (!userOptional.isPresent()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
+        }
+
+        User existingUser = userOptional.get();
+        existingUser.setEmail(user.getEmail());
+        existingUser.setUsername(user.getUsername());
+        existingUser.setPassword(DigestUtils.sha3_256Hex(user.getPassword()));
+        existingUser.setLocation(user.getLocation());
+        existingUser.setPhoneNumber(user.getPhoneNumber());
+        userRepo.save(existingUser);
+
+        return ResponseEntity.ok("User updated successfully.");
+    }
+
+    @DeleteMapping("/delete/users/{id}")
+    @Transactional
+    public ResponseEntity<String> deleteUser(@PathVariable Long id) {
+        Optional<User> userOptional = userRepo.findById(id);
+        if (!userOptional.isPresent()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
+        }
+
+        userRepo.deleteById(id);
+        return ResponseEntity.ok("User deleted successfully.");
     }
 
     @GetMapping("/test")
