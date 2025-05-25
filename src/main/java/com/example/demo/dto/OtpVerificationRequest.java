@@ -11,14 +11,9 @@ public class OtpVerificationRequest {
     @NotNull
     private String otpCode;
 
-    @NotNull
-    private UserDto user;
-
     // Getters and setters
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
     public String getOtpCode() { return otpCode; }
     public void setOtpCode(String otpCode) { this.otpCode = otpCode; }
-    public UserDto getUser() { return user; }
-    public void setUser(UserDto user) { this.user = user; }
 }

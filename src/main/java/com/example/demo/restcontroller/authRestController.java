@@ -1,13 +1,14 @@
 package com.example.demo.restcontroller;
 
-import com.example.demo.dto.UserDto;
 import com.example.demo.dto.EmailRequestDto;
 import com.example.demo.dto.LoginRequest;
 import com.example.demo.dto.OtpVerificationRequest;
 import com.example.demo.dto.ResetPasswordRequestDto;
 import com.example.demo.model.Otp;
+import com.example.demo.model.PendingUser;
 import com.example.demo.model.User;
 import com.example.demo.repository.OtpRepository;
+import com.example.demo.repository.PendingUserRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.service.EmailService;
 import com.example.demo.service.JwtService;
@@ -36,12 +37,14 @@ public class AuthRestController {
     private OtpRepository otpRepo;
 
     @Autowired
+    private PendingUserRepository pendingUserRepo;
+
+    @Autowired
     private EmailService emailService;
 
     @Autowired
     private JwtService jwtService;
 
-    // Existing registration endpoint
     @PostMapping("/register")
     @Transactional
     public ResponseEntity<String> initiateRegistration(@Valid @RequestBody User user, BindingResult result) {
@@ -54,13 +57,29 @@ public class AuthRestController {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Email already exists! Try a new one.");
         }
 
+        // Check if there's already a pending user with this email
+        Optional<PendingUser> pendingUserOptional = pendingUserRepo.findByEmail(user.getEmail());
+        if (pendingUserOptional.isPresent()) {
+            pendingUserRepo.deleteByEmail(user.getEmail());
+        }
+
+        // Store user data temporarily in PendingUser
+        PendingUser pendingUser = new PendingUser(
+            user.getEmail(),
+            user.getUsername(),
+            DigestUtils.sha3_256Hex(user.getPassword()),
+            user.getLocation(),
+            user.getPhoneNumber()
+        );
+        pendingUserRepo.save(pendingUser);
+
         // Generate 6-digit OTP
         String otpCode = String.format("%06d", new Random().nextInt(999999));
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime expiresAt = now.plusMinutes(5);
 
         // Save OTP to database
-        otpRepo.deleteByEmail(user.getEmail()); // Clear any existing OTPs
+        otpRepo.deleteByEmail(user.getEmail());
         Otp otp = new Otp(user.getEmail(), otpCode, now, expiresAt);
         otpRepo.save(otp);
 
@@ -74,7 +93,6 @@ public class AuthRestController {
         return ResponseEntity.ok("OTP sent to " + user.getEmail());
     }
 
-    // Existing OTP verification endpoint
     @PostMapping("/verify-otp")
     @Transactional
     public ResponseEntity<String> verifyOtpAndRegister(@Valid @RequestBody OtpVerificationRequest request, BindingResult result) {
@@ -93,39 +111,39 @@ public class AuthRestController {
             return ResponseEntity.badRequest().body("OTP has expired.");
         }
 
-        UserDto userDto = request.getUser();
-        if (!userDto.getEmail().equals(request.getEmail())) {
-            return ResponseEntity.badRequest().body("Email mismatch.");
+        // Retrieve the pending user data
+        Optional<PendingUser> pendingUserOptional = pendingUserRepo.findByEmail(request.getEmail());
+        if (!pendingUserOptional.isPresent()) {
+            return ResponseEntity.badRequest().body("No pending registration found for this email.");
         }
 
-        Optional<User> existingUser = userRepo.findByEmail(userDto.getEmail());
+        PendingUser pendingUser = pendingUserOptional.get();
+
+        // Check if the email already exists in the User table (just in case)
+        Optional<User> existingUser = userRepo.findByEmail(request.getEmail());
         if (existingUser.isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Email already exists! Try a new one.");
         }
 
-        // Map UserDto to User entity
+        // Create and save the User entity
         User user = new User();
-        user.setEmail(userDto.getEmail());
-        user.setUsername(userDto.getUsername());
-        user.setPassword(DigestUtils.sha3_256Hex(userDto.getPassword()));
-        user.setLocation(userDto.getLocation());
-        user.setPhoneNumber(userDto.getPhoneNumber());
-
-        // Save user
+        user.setEmail(pendingUser.getEmail());
+        user.setUsername(pendingUser.getUsername());
+        user.setPassword(pendingUser.getPassword());
+        user.setLocation(pendingUser.getLocation());
+        user.setPhoneNumber(pendingUser.getPhoneNumber());
         userRepo.save(user);
 
-        // Delete OTP
-        otpRepo.deleteByEmail(user.getEmail());
+        // Clean up: Delete the OTP and pending user record
+        otpRepo.deleteByEmail(request.getEmail());
+        pendingUserRepo.deleteByEmail(request.getEmail());
 
         // Generate JWT
         String token = jwtService.generateToken(user.getEmail());
 
         return ResponseEntity.ok("Registration successful. Token: " + token);
     }
-    
-    
 
-    // New login endpoint
     @PostMapping("/login")
     public ResponseEntity<String> login(@RequestBody LoginRequest loginRequest) {
         if (loginRequest.getEmail() == null || loginRequest.getPassword() == null) {
@@ -143,11 +161,10 @@ public class AuthRestController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid email or password.");
         }
 
-        // Generate JWT
         String token = jwtService.generateToken(user.getEmail());
         return ResponseEntity.ok("Login successful. Token: " + token);
     }
-    
+
     @PostMapping("/forgot-password")
     @Transactional
     public ResponseEntity<String> forgotPassword(@RequestBody EmailRequestDto emailRequest) {
@@ -177,7 +194,6 @@ public class AuthRestController {
         return ResponseEntity.ok("OTP sent to " + emailRequest.getEmail());
     }
 
-    
     @PostMapping("/reset-password")
     @Transactional
     public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequestDto request, BindingResult result) {
@@ -207,12 +223,9 @@ public class AuthRestController {
 
         otpRepo.deleteByEmail(request.getEmail());
 
-        return ResponseEntity.ok
-        		("Password reset successful.");
+        return ResponseEntity.ok("Password reset successful.");
     }
 
-    
-    
     @GetMapping("/test")
     public String getTest() {
         return "test api";
