@@ -9,7 +9,7 @@ import java.util.List;
 
 public interface FoodItemRepository extends JpaRepository<FoodItem, Long> {
     List<FoodItem> findByAvailableTrue();
- 
+
     @Query("SELECT f FROM FoodItem f WHERE f.available = :available " +
            "AND (:name IS NULL OR LOWER(f.name) LIKE LOWER(CONCAT(:name, '%'))) " +
            "AND (:minPrice IS NULL OR f.price >= :minPrice) " +

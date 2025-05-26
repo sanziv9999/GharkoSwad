@@ -15,9 +15,11 @@ public class JwtService {
     @Value("${jwt.expiration}")
     private long jwtExpiration;
 
-    private final SecretKey secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS512);
+    @SuppressWarnings("deprecation")
+	private final SecretKey secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS512);
 
-    public String generateToken(String email) {
+    @SuppressWarnings("deprecation")
+	public String generateToken(String email) {
         return Jwts.builder()
                 .setSubject(email)
                 .setIssuedAt(new Date())
