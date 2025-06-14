@@ -1,6 +1,7 @@
 package com.example.demo.restcontroller;
 
 import com.example.demo.dto.CancelOrderRequest;
+import com.example.demo.dto.OrderResponse;
 import com.example.demo.dto.PlaceOrderRequest;
 import com.example.demo.model.Order;
 import com.example.demo.service.OrderService;
@@ -11,29 +12,45 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/orders")
 public class OrderRestController {
-
     private static final Logger logger = LoggerFactory.getLogger(OrderRestController.class);
+    private static final List<String> VALID_PAYMENT_METHODS = Arrays.asList("CREDIT_CARD", "PAYPAL", "CASH_ON_DELIVERY");
 
     @Autowired
     private OrderService orderService;
 
     @PostMapping("/place")
     public ResponseEntity<?> placeOrder(@RequestBody PlaceOrderRequest request) {
-        logger.info("Received place order request: userId={}, foodItemId={}, quantity={}", 
-                request.getUserId(), request.getFoodItemId(), request.getQuantity());
+        logger.info("Received place order request: userId={}, foodItemId={}, quantity={}, paymentMethod={}",
+                request.getUserId(), request.getFoodItemId(), request.getQuantity(), request.getPaymentMethod());
         try {
-            if (request.getUserId() == null || request.getFoodItemId() == null) {
-                throw new IllegalArgumentException("userId and foodItemId are required");
+            // Validate inputs
+            if (request.getUserId() == null || request.getFoodItemId() == null || request.getPaymentMethod() == null) {
+                throw new IllegalArgumentException("userId, foodItemId, and paymentMethod are required");
             }
-            // Quantity defaults to 1 if not provided, thanks to the DTO
-            Order order = orderService.placeOrder(request.getUserId(), request.getFoodItemId(), request.getQuantity());
-            logger.debug("Order placed successfully: {}", order);
-            return ResponseEntity.ok(order);
+            if (request.getAmount() == null || request.getAmount() <= 0) {
+                throw new IllegalArgumentException("Valid payment amount is required");
+            }
+            if (!VALID_PAYMENT_METHODS.contains(request.getPaymentMethod())) {
+                throw new IllegalArgumentException("Invalid payment method. Allowed values: " + VALID_PAYMENT_METHODS);
+            }
+
+            Order order = orderService.placeOrder(
+                    request.getUserId(),
+                    request.getFoodItemId(),
+                    request.getQuantity(),
+                    request.getAmount(),
+                    request.getPaymentMethod()
+            );
+            OrderResponse response = new OrderResponse(order);
+            logger.debug("Order placed successfully: {}", response);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException | IllegalStateException e) {
             logger.warn("Error placing order: {}", e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -46,15 +63,16 @@ public class OrderRestController {
 
     @PutMapping("/cancel")
     public ResponseEntity<?> cancelOrder(@RequestBody CancelOrderRequest request) {
-        logger.info("Received cancel order request: foodOrderId={}, userId={}", 
+        logger.info("Received cancel order request: foodOrderId={}, userId={}",
                 request.getFoodOrderId(), request.getUserId());
         try {
             if (request.getFoodOrderId() == null || request.getUserId() == null) {
                 throw new IllegalArgumentException("foodOrderId and userId are required");
             }
             Order order = orderService.cancelOrder(request.getFoodOrderId(), request.getUserId());
-            logger.debug("Order cancelled successfully: {}", order);
-            return ResponseEntity.ok(order);
+            OrderResponse response = new OrderResponse(order);
+            logger.debug("Order cancelled successfully: {}", response);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException | IllegalStateException e) {
             logger.warn("Error cancelling order: {}", e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -70,11 +88,11 @@ public class OrderRestController {
         logger.info("Received request to fetch orders for userId={}", userId);
         try {
             List<Order> orders = orderService.getUserOrders(userId);
-            if (orders.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(orders);
-            }
-            logger.debug("Fetched orders for userId {}: {}", userId, orders);
-            return ResponseEntity.ok(orders);
+            List<OrderResponse> response = orders.stream()
+                    .map(OrderResponse::new)
+                    .collect(Collectors.toList());
+            logger.debug("Fetched orders for userId {}: {}", userId, response);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             logger.warn("Error fetching orders: {}", e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());

@@ -27,6 +27,9 @@ public class Order {
     @Column(nullable = false)
     private Integer quantity;
 
+    @OneToOne(mappedBy = "order")
+    private Payment payment; // Bidirectional relationship with Payment
+
     // Constructors
     public Order() {}
 
@@ -38,7 +41,7 @@ public class Order {
         this.quantity = quantity;
     }
 
-    // Getters and setters
+    // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public User getUser() { return user; }
@@ -51,9 +54,12 @@ public class Order {
     public void setStatus(OrderStatus status) { this.status = status; }
     public Integer getQuantity() { return quantity; }
     public void setQuantity(Integer quantity) { this.quantity = quantity; }
+    public Payment getPayment() { return payment; }
+    public void setPayment(Payment payment) { this.payment = payment; }
 
     @Override
     public String toString() {
-        return "Order{id=" + id + ", user=" + user.getId() + ", foodItem=" + foodItem.getId() + ", status=" + status + ", quantity=" + quantity + "}";
+        return "Order{id=" + id + ", user=" + user.getId() + ", foodItem=" + foodItem.getId() +
+                ", status=" + status + ", quantity=" + quantity + ", payment=" + (payment != null ? payment.getId() : null) + "}";
     }
 }
