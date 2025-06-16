@@ -23,6 +23,8 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
@@ -47,14 +49,19 @@ public class AuthRestController {
 
     @PostMapping("/register")
     @Transactional
-    public ResponseEntity<String> initiateRegistration(@Valid @RequestBody User user, BindingResult result) {
+    public ResponseEntity<Map<String, Object>> initiateRegistration(@Valid @RequestBody User user, BindingResult result) {
+        Map<String, Object> response = new HashMap<>();
         if (result.hasErrors()) {
-            return ResponseEntity.badRequest().body("Invalid input: " + result.getAllErrors());
+            response.put("status", "error");
+            response.put("message", "Invalid input: " + result.getAllErrors());
+            return ResponseEntity.badRequest().body(response);
         }
 
         Optional<User> existingUser = userRepo.findByEmail(user.getEmail());
         if (existingUser.isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body("Email already exists! Try a new one.");
+            response.put("status", "error");
+            response.put("message", "Email already exists! Try a new one.");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
         }
 
         Optional<PendingUser> pendingUserOptional = pendingUserRepo.findByEmail(user.getEmail());
@@ -82,40 +89,55 @@ public class AuthRestController {
         try {
             emailService.sendOtpEmail(user.getEmail(), otpCode);
         } catch (MessagingException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to send OTP email: " + e.getMessage());
+            response.put("status", "error");
+            response.put("message", "Failed to send OTP email: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
 
-        return ResponseEntity.ok("OTP sent to " + user.getEmail());
+        response.put("status", "success");
+        response.put("message", "OTP sent to " + user.getEmail());
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/verify-otp")
     @Transactional
-    public ResponseEntity<String> verifyOtpAndRegister(@Valid @RequestBody OtpVerificationRequest request, BindingResult result) {
+    public ResponseEntity<Map<String, Object>> verifyOtpAndRegister(@Valid @RequestBody OtpVerificationRequest request, BindingResult result) {
+        Map<String, Object> response = new HashMap<>();
         if (result.hasErrors()) {
-            return ResponseEntity.badRequest().body("Invalid input: " + result.getAllErrors());
+            response.put("status", "error");
+            response.put("message", "Invalid input: " + result.getAllErrors());
+            return ResponseEntity.badRequest().body(response);
         }
 
         Optional<Otp> otpOptional = otpRepo.findByEmailAndOtpCode(request.getEmail(), request.getOtpCode());
         if (!otpOptional.isPresent()) {
-            return ResponseEntity.badRequest().body("Invalid OTP or email.");
+            response.put("status", "error");
+            response.put("message", "Invalid OTP or email.");
+            return ResponseEntity.badRequest().body(response);
         }
 
         Otp otp = otpOptional.get();
         if (LocalDateTime.now().isAfter(otp.getExpiresAt())) {
             otpRepo.deleteByEmail(request.getEmail());
-            return ResponseEntity.badRequest().body("OTP has expired.");
+            response.put("status", "error");
+            response.put("message", "OTP has expired.");
+            return ResponseEntity.badRequest().body(response);
         }
 
         Optional<PendingUser> pendingUserOptional = pendingUserRepo.findByEmail(request.getEmail());
         if (!pendingUserOptional.isPresent()) {
-            return ResponseEntity.badRequest().body("No pending registration found for this email.");
+            response.put("status", "error");
+            response.put("message", "No pending registration found for this email.");
+            return ResponseEntity.badRequest().body(response);
         }
 
         PendingUser pendingUser = pendingUserOptional.get();
 
         Optional<User> existingUser = userRepo.findByEmail(request.getEmail());
         if (existingUser.isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body("Email already exists! Try a new one.");
+            response.put("status", "error");
+            response.put("message", "Email already exists! Try a new one.");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
         }
 
         User user = new User();
@@ -130,41 +152,74 @@ public class AuthRestController {
         pendingUserRepo.deleteByEmail(request.getEmail());
 
         String token = jwtService.generateToken(user.getEmail());
+        Map<String, Object> data = new HashMap<>();
+        data.put("token", token);
+        data.put("user", Map.of(
+            "id", user.getId(),
+            "username", user.getUsername(),
+            "email", user.getEmail()
+        ));
 
-        return ResponseEntity.ok("Registration successful. Token: " + token);
+        response.put("status", "success");
+        response.put("message", "Registration successful");
+        response.put("data", data);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<Map<String, Object>> login(@RequestBody LoginRequest loginRequest) {
+        Map<String, Object> response = new HashMap<>();
         if (loginRequest.getEmail() == null || loginRequest.getPassword() == null) {
-            return ResponseEntity.badRequest().body("Email and password are required.");
+            response.put("status", "error");
+            response.put("message", "Email and password are required.");
+            return ResponseEntity.badRequest().body(response);
         }
 
         Optional<User> userOptional = userRepo.findByEmail(loginRequest.getEmail());
         if (!userOptional.isPresent()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid email or password.");
+            response.put("status", "error");
+            response.put("message", "Invalid email or password.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
 
         User user = userOptional.get();
         String hashedPassword = DigestUtils.sha3_256Hex(loginRequest.getPassword());
         if (!user.getPassword().equals(hashedPassword)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid email or password.");
+            response.put("status", "error");
+            response.put("message", "Invalid email or password.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
 
         String token = jwtService.generateToken(user.getEmail());
-        return ResponseEntity.ok("Login successful. Token: " + token);
+        Map<String, Object> data = new HashMap<>();
+        data.put("token", token);
+        data.put("user", Map.of(
+            "id", user.getId(),
+            "username", user.getUsername(),
+            "email", user.getEmail()
+        ));
+
+        response.put("status", "success");
+        response.put("message", "Login successful");
+        response.put("data", data);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/forgot-password")
     @Transactional
-    public ResponseEntity<String> forgotPassword(@RequestBody EmailRequestDto emailRequest) {
+    public ResponseEntity<Map<String, Object>> forgotPassword(@RequestBody EmailRequestDto emailRequest) {
+        Map<String, Object> response = new HashMap<>();
         if (emailRequest.getEmail() == null) {
-            return ResponseEntity.badRequest().body("Email is required.");
+            response.put("status", "error");
+            response.put("message", "Email is required.");
+            return ResponseEntity.badRequest().body(response);
         }
 
         Optional<User> userOptional = userRepo.findByEmail(emailRequest.getEmail());
         if (!userOptional.isPresent()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Email not found.");
+            response.put("status", "error");
+            response.put("message", "Email not found.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         }
 
         String otpCode = String.format("%06d", new Random().nextInt(999999));
@@ -178,33 +233,46 @@ public class AuthRestController {
         try {
             emailService.sendOtpEmail(emailRequest.getEmail(), otpCode);
         } catch (MessagingException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to send OTP email: " + e.getMessage());
+            response.put("status", "error");
+            response.put("message", "Failed to send OTP email: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
 
-        return ResponseEntity.ok("OTP sent to " + emailRequest.getEmail());
+        response.put("status", "success");
+        response.put("message", "OTP sent to " + emailRequest.getEmail());
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/reset-password")
     @Transactional
-    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequestDto request, BindingResult result) {
+    public ResponseEntity<Map<String, Object>> resetPassword(@Valid @RequestBody ResetPasswordRequestDto request, BindingResult result) {
+        Map<String, Object> response = new HashMap<>();
         if (result.hasErrors()) {
-            return ResponseEntity.badRequest().body("Invalid input: " + result.getAllErrors());
+            response.put("status", "error");
+            response.put("message", "Invalid input: " + result.getAllErrors());
+            return ResponseEntity.badRequest().body(response);
         }
 
         Optional<Otp> otpOptional = otpRepo.findByEmailAndOtpCode(request.getEmail(), request.getOtpCode());
         if (!otpOptional.isPresent()) {
-            return ResponseEntity.badRequest().body("Invalid OTP or email.");
+            response.put("status", "error");
+            response.put("message", "Invalid OTP or email.");
+            return ResponseEntity.badRequest().body(response);
         }
 
         Otp otp = otpOptional.get();
         if (LocalDateTime.now().isAfter(otp.getExpiresAt())) {
             otpRepo.deleteByEmail(request.getEmail());
-            return ResponseEntity.badRequest().body("OTP has expired.");
+            response.put("status", "error");
+            response.put("message", "OTP has expired.");
+            return ResponseEntity.badRequest().body(response);
         }
 
         Optional<User> userOptional = userRepo.findByEmail(request.getEmail());
         if (!userOptional.isPresent()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Email not found.");
+            response.put("status", "error");
+            response.put("message", "Email not found.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         }
 
         User user = userOptional.get();
@@ -213,19 +281,26 @@ public class AuthRestController {
 
         otpRepo.deleteByEmail(request.getEmail());
 
-        return ResponseEntity.ok("Password reset successful.");
+        response.put("status", "success");
+        response.put("message", "Password reset successful");
+        return ResponseEntity.ok(response);
     }
 
     @PatchMapping("/edit/users/{id}")
     @Transactional
-    public ResponseEntity<String> editUser(@PathVariable Long id, @Valid @RequestBody User user, BindingResult result) {
+    public ResponseEntity<Map<String, Object>> editUser(@PathVariable Long id, @Valid @RequestBody User user, BindingResult result) {
+        Map<String, Object> response = new HashMap<>();
         if (result.hasErrors()) {
-            return ResponseEntity.badRequest().body("Invalid input: " + result.getAllErrors());
+            response.put("status", "error");
+            response.put("message", "Invalid input: " + result.getAllErrors());
+            return ResponseEntity.badRequest().body(response);
         }
 
         Optional<User> userOptional = userRepo.findById(id);
         if (!userOptional.isPresent()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
+            response.put("status", "error");
+            response.put("message", "User not found.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         }
 
         User existingUser = userOptional.get();
@@ -236,23 +311,38 @@ public class AuthRestController {
         existingUser.setPhoneNumber(user.getPhoneNumber());
         userRepo.save(existingUser);
 
-        return ResponseEntity.ok("User updated successfully.");
+        response.put("status", "success");
+        response.put("message", "User updated successfully");
+        response.put("data", Map.of(
+            "id", existingUser.getId(),
+            "username", existingUser.getUsername(),
+            "email", existingUser.getEmail()
+        ));
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/delete/users/{id}")
     @Transactional
-    public ResponseEntity<String> deleteUser(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> deleteUser(@PathVariable Long id) {
+        Map<String, Object> response = new HashMap<>();
         Optional<User> userOptional = userRepo.findById(id);
         if (!userOptional.isPresent()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
+            response.put("status", "error");
+            response.put("message", "User not found.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         }
 
         userRepo.deleteById(id);
-        return ResponseEntity.ok("User deleted successfully.");
+        response.put("status", "success");
+        response.put("message", "User deleted successfully");
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/test")
-    public String getTest() {
-        return "test api";
+    public ResponseEntity<Map<String, Object>> getTest() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("message", "Test API successful");
+        return ResponseEntity.ok(response);
     }
 }
