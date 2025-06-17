@@ -69,12 +69,14 @@ public class AuthRestController {
             pendingUserRepo.deleteByEmail(user.getEmail());
         }
 
+        String role = user.getRole() != null && user.getRole().equals("CHEF") ? "CHEF" : "USER";
         PendingUser pendingUser = new PendingUser(
             user.getEmail(),
             user.getUsername(),
             DigestUtils.sha3_256Hex(user.getPassword()),
             user.getLocation(),
-            user.getPhoneNumber()
+            user.getPhoneNumber(),
+            role
         );
         pendingUserRepo.save(pendingUser);
 
@@ -146,6 +148,7 @@ public class AuthRestController {
         user.setPassword(pendingUser.getPassword());
         user.setLocation(pendingUser.getLocation());
         user.setPhoneNumber(pendingUser.getPhoneNumber());
+        user.setRole(pendingUser.getRole());
         userRepo.save(user);
 
         otpRepo.deleteByEmail(request.getEmail());
@@ -157,7 +160,8 @@ public class AuthRestController {
         data.put("user", Map.of(
             "id", user.getId(),
             "username", user.getUsername(),
-            "email", user.getEmail()
+            "email", user.getEmail(),
+            "role", user.getRole()
         ));
 
         response.put("status", "success");
@@ -196,7 +200,8 @@ public class AuthRestController {
         data.put("user", Map.of(
             "id", user.getId(),
             "username", user.getUsername(),
-            "email", user.getEmail()
+            "email", user.getEmail(),
+            "role", user.getRole()
         ));
 
         response.put("status", "success");
@@ -309,6 +314,8 @@ public class AuthRestController {
         existingUser.setPassword(DigestUtils.sha3_256Hex(user.getPassword()));
         existingUser.setLocation(user.getLocation());
         existingUser.setPhoneNumber(user.getPhoneNumber());
+        String role = user.getRole() != null && user.getRole().equals("CHEF") ? "CHEF" : "USER";
+        existingUser.setRole(role);
         userRepo.save(existingUser);
 
         response.put("status", "success");
@@ -316,7 +323,8 @@ public class AuthRestController {
         response.put("data", Map.of(
             "id", existingUser.getId(),
             "username", existingUser.getUsername(),
-            "email", existingUser.getEmail()
+            "email", existingUser.getEmail(),
+            "role", existingUser.getRole()
         ));
         return ResponseEntity.ok(response);
     }

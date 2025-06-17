@@ -16,15 +16,18 @@ public class PendingUser {
     private String password;
     private String location;
     private String phoneNumber;
+    private String role;
 
+    // Constructors
     public PendingUser() {}
 
-    public PendingUser(String email, String username, String password, String location, String phoneNumber) {
+    public PendingUser(String email, String username, String password, String location, String phoneNumber, String role) {
         this.email = email;
         this.username = username;
         this.password = password;
         this.location = location;
         this.phoneNumber = phoneNumber;
+        this.role = role;
     }
 
     // Getters and setters
@@ -40,4 +43,6 @@ public class PendingUser {
     public void setLocation(String location) { this.location = location; }
     public String getPhoneNumber() { return phoneNumber; }
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
 }
