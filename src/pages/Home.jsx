@@ -1,0 +1,446 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Play, MapPin, Star, ChefHat, Clock, Gift, ShoppingBag, ArrowRight, Truck, Shield, Heart } from 'lucide-react';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
+
+const Home = () => {
+  return (
+    <div className="bg-white">
+      {/* Hero Section */}
+      <section className="relative bg-gradient-to-br from-primary-50 via-white to-primary-50/30 py-24 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div className="space-y-10 animate-fade-in">
+              <div className="space-y-6">
+                <Badge variant="success" size="md" className="animate-bounce-gentle">
+                  🌟 #1 Homemade Food Delivery
+                </Badge>
+                <h1 className="text-5xl lg:text-7xl font-bold text-gray-900 leading-tight">
+                  Get Homemade<br />
+                  Food From <span className="text-primary-500 relative">
+                    Home
+                    <div className="absolute -bottom-2 left-0 w-full h-3 bg-primary-200 opacity-60 rounded-full"></div>
+                  </span>
+                </h1>
+                <p className="text-xl text-gray-600 leading-relaxed max-w-lg">
+                  Where Each Plate Weaves a Story of Culinary<br />
+                  Mastery and Passionate Craftsmanship
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-6">
+                <Button size="lg" className="px-10 py-4 text-lg shadow-lg hover:shadow-xl">
+                  <ShoppingBag className="w-5 h-5 mr-2" />
+                  Order Now
+                </Button>
+                <button className="flex items-center space-x-3 px-8 py-4 text-gray-700 hover:text-primary-600 transition-all duration-300 group">
+                  <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
+                    <Play className="w-6 h-6 text-primary-500 ml-1" />
+                  </div>
+                  <span className="font-semibold text-lg">Watch Video</span>
+                </button>
+              </div>
+              <div className="flex items-center space-x-8 pt-4">
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-gray-900">50K+</p>
+                  <p className="text-gray-600">Happy Customers</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-gray-900">4.8</p>
+                  <div className="flex items-center justify-center space-x-1">
+                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                    <span className="text-gray-600">Rating</span>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-gray-900">1000+</p>
+                  <p className="text-gray-600">Home Chefs</p>
+                </div>
+              </div>
+            </div>
+            <div className="relative animate-slide-up">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary-400 to-secondary-400 rounded-3xl rotate-6 opacity-20"></div>
+                <Card className="relative p-8 bg-gradient-to-br from-white to-gray-50">
+                  <img
+                    src="https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=600"
+                    alt="Delicious homemade food"
+                    className="w-full h-80 object-cover rounded-2xl shadow-2xl"
+                  />
+                  
+                  {/* Floating Cards */}
+                  <Card className="absolute -bottom-6 -left-6 p-4 shadow-xl animate-bounce-gentle" hover>
+                    <div className="flex items-center space-x-3">
+                      <img
+                        src="https://images.pexels.com/photos/769289/pexels-photo-769289.jpeg?auto=compress&cs=tinysrgb&w=100"
+                        alt="Puri Tarkari"
+                        className="w-14 h-14 rounded-xl object-cover"
+                      />
+                      <div>
+                        <p className="font-bold text-gray-900">Puri Tarkari</p>
+                        <p className="text-primary-600 font-semibold">₹ 120</p>
+                        <div className="flex items-center space-x-1">
+                          <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                          <span className="text-xs text-gray-600">4.8</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  <Card className="absolute -top-6 -right-6 p-4 shadow-xl animate-bounce-gentle" style={{animationDelay: '0.5s'}} hover>
+                    <div className="flex items-center space-x-3">
+                      <img
+                        src="https://images.pexels.com/photos/1833336/pexels-photo-1833336.jpeg?auto=compress&cs=tinysrgb&w=100"
+                        alt="Dal Bhat"
+                        className="w-14 h-14 rounded-xl object-cover"
+                      />
+                      <div>
+                        <p className="font-bold text-gray-900">Dal Bhat</p>
+                        <p className="text-primary-600 font-semibold">₹ 180</p>
+                        <div className="flex items-center space-x-1">
+                          <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                          <span className="text-xs text-gray-600">4.9</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </Card>
+
+                {/* Decorative Elements */}
+                <div className="absolute top-1/4 -left-8 w-6 h-6 bg-orange-400 rounded-full animate-bounce-gentle"></div>
+                <div className="absolute bottom-1/3 -right-4 w-4 h-4 bg-red-400 rounded-full animate-bounce-gentle" style={{animationDelay: '0.5s'}}></div>
+                <div className="absolute top-1/2 -right-12 w-3 h-3 bg-yellow-400 rounded-full animate-bounce-gentle" style={{animationDelay: '1s'}}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Popular Categories */}
+      <section className="py-24 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <Badge variant="primary" size="md" className="mb-4">
+              Customer Favourites
+            </Badge>
+            <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">Popular Categories</h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Discover the most loved homemade dishes crafted by local home chefs
+            </p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {[
+              { 
+                name: 'Main Dish', 
+                count: '86 dishes', 
+                image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=200',
+                color: 'bg-orange-100 text-orange-600'
+              },
+              { 
+                name: 'Break Fast', 
+                count: '12 break fast', 
+                image: 'https://images.pexels.com/photos/376464/pexels-photo-376464.jpeg?auto=compress&cs=tinysrgb&w=200',
+                color: 'bg-blue-100 text-blue-600'
+              },
+              { 
+                name: 'Dessert', 
+                count: '48 dessert', 
+                image: 'https://images.pexels.com/photos/291528/pexels-photo-291528.jpeg?auto=compress&cs=tinysrgb&w=200',
+                color: 'bg-pink-100 text-pink-600'
+              },
+              { 
+                name: 'Browse All', 
+                count: '255 Items', 
+                image: 'https://images.pexels.com/photos/1099680/pexels-photo-1099680.jpeg?auto=compress&cs=tinysrgb&w=200',
+                color: 'bg-primary-100 text-primary-600'
+              },
+            ].map((category, index) => (
+              <Card
+                key={index}
+                className="p-8 text-center cursor-pointer group"
+                hover
+              >
+                <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center ${category.color} group-hover:scale-110 transition-transform duration-300`}>
+                  <img
+                    src={category.image}
+                    alt={category.name}
+                    className="w-12 h-12 rounded-xl object-cover"
+                  />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">{category.name}</h3>
+                <p className="text-gray-600">({category.count})</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <Badge variant="success" size="md" className="mb-4">
+              Why Choose Us
+            </Badge>
+            <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
+              We Deliver More Than Food
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                icon: Truck,
+                title: 'Fast Delivery',
+                description: 'Get your homemade food delivered hot and fresh within 30 minutes',
+                color: 'bg-blue-500'
+              },
+              {
+                icon: Shield,
+                title: 'Quality Guaranteed',
+                description: 'All our home chefs are verified and follow strict hygiene standards',
+                color: 'bg-primary-500'
+              },
+              {
+                icon: Heart,
+                title: 'Made with Love',
+                description: 'Every dish is prepared with care by local families who love cooking',
+                color: 'bg-red-500'
+              }
+            ].map((feature, index) => (
+              <Card key={index} className="p-8 text-center group" hover>
+                <div className={`w-16 h-16 mx-auto mb-6 ${feature.color} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                  <feature.icon className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">{feature.title}</h3>
+                <p className="text-gray-600 leading-relaxed">{feature.description}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="py-24 bg-gradient-to-br from-primary-50 to-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div className="relative">
+              <Card className="p-8 bg-gradient-to-br from-primary-500 to-primary-600 text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mb-16"></div>
+                <div className="relative text-center">
+                  <img
+                    src="https://images.pexels.com/photos/1043474/pexels-photo-1043474.jpeg?auto=compress&cs=tinysrgb&w=300"
+                    alt="Home Chef"
+                    className="w-56 h-56 mx-auto rounded-full object-cover border-4 border-white/20"
+                  />
+                  <div className="mt-6">
+                    <Badge variant="success" className="bg-white/20 text-white border border-white/30">
+                      Verified Home Chef
+                    </Badge>
+                    <p className="text-white/90 font-medium mt-2">Award Winner 2023</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+            <div className="space-y-8">
+              <div>
+                <Badge variant="primary" size="md" className="mb-4">
+                  Testimonials
+                </Badge>
+                <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
+                  What Our Customers<br />Say About Us
+                </h2>
+              </div>
+              <Card className="p-8">
+                <blockquote className="text-xl text-gray-700 leading-relaxed mb-6">
+                  "I had the pleasure of dining at foodi last night, and I'm still raving about the experience! The attention to detail in presentation and service was impeccable. From the moment I stepped through the door, I felt like eating food made with love by family."
+                </blockquote>
+                <div className="flex items-center space-x-4">
+                  <img
+                    src="https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=100"
+                    alt="Customer"
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
+                  <div>
+                    <p className="font-bold text-gray-900 text-lg">Rifka Sharma</p>
+                    <p className="text-gray-600">Kathmandu</p>
+                    <div className="flex items-center space-x-2 mt-2">
+                      <div className="flex items-center">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />
+                        ))}
+                      </div>
+                      <span className="text-sm text-gray-600">4.9 (18.8k Reviews)</span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Services */}
+      <section className="py-24 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <Badge variant="secondary" size="md" className="mb-4">
+              Our Story & Services
+            </Badge>
+            <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
+              Our Culinary Journey<br />And Services
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Rooted in passion, we curate unforgettable dining experiences and offer exceptional services, blending culinary artistry with warm hospitality.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[
+              {
+                icon: ChefHat,
+                title: 'Home Chef',
+                description: 'Experience hand-crafted food from home, prepared with local ingredients and traditional recipes.',
+                color: 'bg-orange-500'
+              },
+              {
+                icon: Clock,
+                title: 'Weekly Meal Plan',
+                description: 'Subscribe to delicious, home-made weekly meal plans that save time while ensuring nutritious dining.',
+                color: 'bg-blue-500'
+              },
+              {
+                icon: ShoppingBag,
+                title: 'Custom Orders',
+                description: 'Customize your meal according to your taste and dietary requirements with our flexible ordering system.',
+                color: 'bg-primary-500'
+              },
+              {
+                icon: Gift,
+                title: 'Fresh Ingredients',
+                description: 'We use only the freshest, locally-sourced ingredients to ensure the highest quality in every dish.',
+                color: 'bg-red-500'
+              }
+            ].map((service, index) => (
+              <Card
+                key={index}
+                className="p-8 text-center group"
+                hover
+              >
+                <div className={`w-20 h-20 mx-auto mb-6 ${service.color} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                  <service.icon className="w-10 h-10 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">{service.title}</h3>
+                <p className="text-gray-600 leading-relaxed">{service.description}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Location Search CTA */}
+      <section className="py-24 bg-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="space-y-12">
+            <div>
+              <h2 className="text-4xl lg:text-6xl font-bold text-gray-900 mb-6">
+                Ready to Order?<br />
+                Food now from <span className="text-primary-500">Home</span>
+              </h2>
+              <p className="text-xl text-gray-600">
+                Where Each Plate Weaves a Story of Culinary<br />
+                Mastery and Passionate Craftsmanship
+              </p>
+            </div>
+            <Card className="max-w-2xl mx-auto p-8">
+              <div className="flex items-center bg-gray-50 rounded-2xl p-3">
+                <div className="flex items-center flex-1 px-6">
+                  <MapPin className="w-6 h-6 text-gray-400 mr-3" />
+                  <input
+                    type="text"
+                    placeholder="Enter your delivery location"
+                    className="bg-transparent flex-1 outline-none text-gray-700 text-lg"
+                  />
+                </div>
+                <Button className="px-8 py-3 text-lg">
+                  Find Food
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </div>
+              <div className="mt-6 text-left">
+                <p className="text-sm font-semibold text-gray-700 mb-2">POPULAR CITIES IN NEPAL</p>
+                <div className="flex flex-wrap gap-2">
+                  {['Kathmandu', 'Bhaktapur', 'Lalitpur', 'Pokhara'].map((city) => (
+                    <Badge key={city} variant="primary" className="cursor-pointer hover:bg-primary-200 transition-colors">
+                      {city}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* App Download Section */}
+      <section className="py-24 bg-gradient-to-br from-primary-50 to-secondary-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div className="space-y-8">
+              <div>
+                <Badge variant="success" size="md" className="mb-4">
+                  Mobile App
+                </Badge>
+                <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
+                  Homemade Foods<br />
+                  In Your <span className="text-primary-500">Pocket</span>
+                </h2>
+                <p className="text-xl text-gray-600 leading-relaxed">
+                  All you need to do is download one of the best delivery apps, make an order and most companies are opting for mobile app development for food delivery
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <img
+                  src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
+                  alt="Get it on Google Play"
+                  className="h-16 w-auto cursor-pointer hover:scale-105 transition-transform duration-200"
+                />
+                <img
+                  src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg"
+                  alt="Download on the App Store"
+                  className="h-16 w-auto cursor-pointer hover:scale-105 transition-transform duration-200"
+                />
+              </div>
+            </div>
+            <div className="relative">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary-400 to-primary-500 rounded-full opacity-20 animate-pulse"></div>
+                <img
+                  src="https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=500"
+                  alt="Traditional food platter"
+                  className="relative z-10 w-80 h-80 mx-auto rounded-full object-cover border-8 border-primary-500/20 shadow-2xl"
+                />
+                
+                {/* Floating Elements */}
+                <div className="absolute top-8 right-8 w-6 h-6 bg-orange-400 rounded-full animate-bounce-gentle"></div>
+                <div className="absolute bottom-16 left-8 w-4 h-4 bg-red-400 rounded-full animate-bounce-gentle" style={{animationDelay: '0.5s'}}></div>
+                <div className="absolute top-1/3 right-1/4 w-3 h-3 bg-yellow-400 rounded-full animate-bounce-gentle" style={{animationDelay: '1s'}}></div>
+                
+                {/* Decorative Image */}
+                <div className="absolute -bottom-8 -right-8">
+                  <img
+                    src="https://images.pexels.com/photos/1437267/pexels-photo-1437267.jpeg?auto=compress&cs=tinysrgb&w=100"
+                    alt="Herbs"
+                    className="w-24 h-24 object-cover opacity-80"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default Home;
