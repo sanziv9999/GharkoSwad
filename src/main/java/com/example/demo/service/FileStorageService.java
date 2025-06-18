@@ -1,5 +1,7 @@
 package com.example.demo.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -12,27 +14,42 @@ import java.util.UUID;
 @Service
 public class FileStorageService {
 
+    private static final Logger logger = LoggerFactory.getLogger(FileStorageService.class);
+
     private final String uploadDir = "uploads/images/";
 
     public FileStorageService() {
         try {
             Files.createDirectories(Paths.get(uploadDir));
+            logger.info("Upload directory created or verified: {}", uploadDir);
         } catch (IOException e) {
+            logger.error("Could not create upload directory: {}", e.getMessage(), e);
             throw new RuntimeException("Could not create upload directory", e);
         }
     }
 
     public String storeFile(MultipartFile file) throws IOException {
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("File is empty");
+        if (file == null || file.isEmpty()) {
+            logger.warn("Attempted to store a null or empty file: {}", file == null ? "null" : file.getOriginalFilename());
+            throw new IllegalArgumentException("File is null or empty");
         }
+
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IllegalArgumentException("Only image files are allowed");
+            logger.warn("Invalid file type detected: {}", contentType);
+            throw new IllegalArgumentException("Only image files are allowed. Detected: " + contentType);
         }
+
         String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
         Path filePath = Paths.get(uploadDir + fileName);
-        Files.write(filePath, file.getBytes());
-        return "/images/" + fileName;
+
+        try {
+            Files.write(filePath, file.getBytes());
+            logger.info("File successfully saved to: {}", filePath);
+            return "/images/" + fileName;
+        } catch (IOException e) {
+            logger.error("Failed to save file {} to {}: {}", file.getOriginalFilename(), filePath, e.getMessage(), e);
+            throw e; // Re-throw to be caught by the controller
+        }
     }
 }

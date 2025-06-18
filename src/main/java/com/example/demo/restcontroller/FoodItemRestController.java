@@ -18,7 +18,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -41,83 +41,83 @@ public class FoodItemRestController {
     public ResponseEntity<List<FoodItem>> getAvailableFoods(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Double minPrice,
-            @RequestParam(required = false) Double maxPrice) {
+            @RequestParam(required = false) Double maxPrice,
+            @RequestParam(required = false) Set<String> tags,
+            @RequestParam(required = false) String preparationTime) {
         try {
-            List<FoodItem> foods = foodItemService.getAvailableFoods(name, minPrice, maxPrice);
+            List<FoodItem> foods = foodItemService.searchFoods(true, name, minPrice, maxPrice, tags, preparationTime);
             if (foods.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NO_CONTENT).body(foods);
             }
             return ResponseEntity.ok(foods);
         } catch (Exception e) {
-            logger.error("Error fetching food items: {}", e.getMessage());
+            logger.error("Error fetching available food items: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
 
     @PostMapping(value = "/add", consumes = {"multipart/form-data"})
     public ResponseEntity<?> addFood(
-            @RequestPart(value = "name") String name,
-            @RequestPart(value = "description", required = false) String description,
-            @RequestPart(value = "price") String price,
-            @RequestPart(value = "available") String available,
+            @RequestParam(value = "name") String name,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "price", required = false) String price,
+            @RequestParam(value = "originalPrice", required = false) String originalPrice,
+            @RequestParam(value = "available") String available,
+            @RequestParam(value = "preparationTime", required = false) String preparationTime,
+            @RequestParam(value = "tags", required = false) Set<String> tags,
+            @RequestParam(value = "discountPercentage", required = false) String discountPercentage,
             @RequestPart(value = "image", required = false) MultipartFile image) {
-        logger.info("Received add food request: name={}, description={}, price={}, available={}, image={}",
-                name, description, price, available, image != null ? image.getOriginalFilename() : "null");
+        
+        logger.info("Received add food request: name={}, description={}, price={}, originalPrice={}, available={}, " +
+                "preparationTime={}, tags={}, discountPercentage={}, image={}",
+                name, description, price, originalPrice, available, preparationTime, tags, discountPercentage,
+                image != null ? image.getOriginalFilename() : "null");
 
-        // Map individual fields to FoodItemDto
-        FoodItemDto foodDto = new FoodItemDto();
-        foodDto.setName(name);
-        foodDto.setDescription(description);
+        // Create FoodItem instance
+        FoodItem foodItem = new FoodItem();
+        foodItem.setName(name);
+        foodItem.setDescription(description != null ? description : "");
+        if (price != null) foodItem.setPrice(parseDouble(price, "Price"));
+        if (originalPrice != null) foodItem.setOriginalPrice(parseDouble(originalPrice, "Original price", true));
+        foodItem.setAvailable(parseBoolean(available, "Available"));
+        foodItem.setPreparationTime(preparationTime != null ? preparationTime : "");
+        foodItem.setTags(tags != null ? new HashSet<>(tags) : new HashSet<>());
+        if (discountPercentage != null) foodItem.setDiscountPercentage(parseDiscountPercentage(discountPercentage));
 
-        // Parse price
-        Double priceValue;
-        try {
-            priceValue = Double.parseDouble(price);
-        } catch (NumberFormatException e) {
-            logger.warn("Invalid price format: {}", price);
-            return ResponseEntity.badRequest().body("Price must be a valid number");
-        }
-        foodDto.setPrice(priceValue);
-
-        // Parse available
-        Boolean availableValue;
-        try {
-            availableValue = Boolean.parseBoolean(available);
-        } catch (Exception e) {
-            logger.warn("Invalid available format: {}", available);
-            return ResponseEntity.badRequest().body("Available must be a valid boolean (true/false)");
-        }
-        foodDto.setAvailable(availableValue);
-
-        // Validate FoodItemDto
-        Set<ConstraintViolation<FoodItemDto>> violations = validator.validate(foodDto);
+        // Validate FoodItem
+        Set<ConstraintViolation<FoodItem>> violations = validator.validate(foodItem);
         if (!violations.isEmpty()) {
+            String errorMessage = violations.stream()
+                    .map(v -> v.getPropertyPath() + ": " + v.getMessage())
+                    .reduce((a, b) -> a + "; " + b).orElse("Validation failed");
             logger.warn("Validation errors: {}", violations);
-            return ResponseEntity.badRequest()
-                    .body("Invalid food data: " + violations);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
 
         try {
-            String imagePath = null;
+            String imagePath = "";
             if (image != null && !image.isEmpty()) {
                 imagePath = fileStorageService.storeFile(image);
-                logger.info("Image uploaded: {}", imagePath);
+                logger.info("Image successfully saved with path: {}", imagePath);
+            } else {
+                logger.warn("No valid image provided for upload");
             }
-            FoodItem savedFood = foodItemService.saveFood(foodDto, imagePath);
+            foodItem.setImagePath(imagePath);
+            FoodItem savedFood = foodItemService.saveFood(foodItem);
 
-            // Map back to DTO for response with imagePath
+            // Map back to DTO for response
             FoodItemDto responseDto = new FoodItemDto();
-            responseDto.setName(savedFood.getName());
-            responseDto.setDescription(savedFood.getDescription());
-            responseDto.setPrice(savedFood.getPrice());
-            responseDto.setAvailable(savedFood.getAvailable());
-            responseDto.setImagePath(savedFood.getImagePath());
+            mapFoodToDto(savedFood, responseDto);
             return ResponseEntity.ok(responseDto);
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid input: {}", e.getMessage());
+            logger.warn("Invalid input during image upload: {}", e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (IOException e) {
+            logger.error("IO error during image upload: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to upload image: " + e.getMessage());
         } catch (Exception e) {
-            logger.error("Error adding food item: {}", e.getMessage());
+            logger.error("Error adding food item: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to add food item: " + e.getMessage());
         }
@@ -126,13 +126,20 @@ public class FoodItemRestController {
     @PatchMapping(value = "/update/{id}", consumes = {"multipart/form-data"})
     public ResponseEntity<?> updateFood(
             @PathVariable Long id,
-            @RequestPart(value = "name", required = false) String name,
-            @RequestPart(value = "description", required = false) String description,
-            @RequestPart(value = "price", required = false) String price,
-            @RequestPart(value = "available", required = false) String available,
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "price", required = false) String price,
+            @RequestParam(value = "originalPrice", required = false) String originalPrice,
+            @RequestParam(value = "available", required = false) String available,
+            @RequestParam(value = "preparationTime", required = false) String preparationTime,
+            @RequestParam(value = "tags", required = false) Set<String> tags,
+            @RequestParam(value = "discountPercentage", required = false) String discountPercentage,
             @RequestPart(value = "image", required = false) MultipartFile image) {
-        logger.info("Received update food request for id {}: name={}, description={}, price={}, available={}, image={}",
-                id, name, description, price, available, image != null ? image.getOriginalFilename() : "null");
+        
+        logger.info("Received update food request for id {}: name={}, description={}, price={}, originalPrice={}, available={}, " +
+                "preparationTime={}, tags={}, discountPercentage={}, image={}",
+                id, name, description, price, originalPrice, available, preparationTime, tags, discountPercentage,
+                image != null ? image.getOriginalFilename() : "null");
 
         // Fetch existing food item
         FoodItem existingFood = foodItemService.findById(id);
@@ -141,85 +148,59 @@ public class FoodItemRestController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Food item not found");
         }
 
-        // Map individual fields to FoodItemDto, only if provided
-        FoodItemDto foodDto = new FoodItemDto();
-        foodDto.setName(existingFood.getName()); // Default to existing value
-        foodDto.setDescription(existingFood.getDescription());
-        foodDto.setPrice(existingFood.getPrice());
-        foodDto.setAvailable(existingFood.getAvailable());
+        // Update existing FoodItem
+        if (name != null) existingFood.setName(name);
+        if (description != null) existingFood.setDescription(description);
+        if (price != null) existingFood.setPrice(parseDouble(price, "Price"));
+        if (originalPrice != null) existingFood.setOriginalPrice(parseDouble(originalPrice, "Original price", true));
+        if (available != null) existingFood.setAvailable(parseBoolean(available, "Available"));
+        if (preparationTime != null) existingFood.setPreparationTime(preparationTime);
+        if (tags != null) existingFood.setTags(new HashSet<>(tags));
+        if (discountPercentage != null) existingFood.setDiscountPercentage(parseDiscountPercentage(discountPercentage));
 
-        // Update only the fields that are provided
-        if (name != null) {
-            foodDto.setName(name);
-        }
-        if (description != null) {
-            foodDto.setDescription(description);
-        }
-        if (price != null) {
-            try {
-                Double priceValue = Double.parseDouble(price);
-                foodDto.setPrice(priceValue);
-            } catch (NumberFormatException e) {
-                logger.warn("Invalid price format: {}", price);
-                return ResponseEntity.badRequest().body("Price must be a valid number");
-            }
-        }
-        if (available != null) {
-            try {
-                Boolean availableValue = Boolean.parseBoolean(available);
-                foodDto.setAvailable(availableValue);
-            } catch (Exception e) {
-                logger.warn("Invalid available format: {}", available);
-                return ResponseEntity.badRequest().body("Available must be a valid boolean (true/false)");
-            }
-        }
-
-        // Validate FoodItemDto
-        Set<ConstraintViolation<FoodItemDto>> violations = validator.validate(foodDto);
+        // Validate FoodItem
+        Set<ConstraintViolation<FoodItem>> violations = validator.validate(existingFood);
         if (!violations.isEmpty()) {
+            String errorMessage = violations.stream()
+                    .map(v -> v.getPropertyPath() + ": " + v.getMessage())
+                    .reduce((a, b) -> a + "; " + b).orElse("Validation failed");
             logger.warn("Validation errors: {}", violations);
-            return ResponseEntity.badRequest()
-                    .body("Invalid food data: " + violations);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
 
         try {
-            String newImagePath = existingFood.getImagePath(); // Retain old image path if no new image
+            String newImagePath = existingFood.getImagePath() != null ? existingFood.getImagePath() : "";
             if (image != null && !image.isEmpty()) {
-                // Delete old image if it exists
                 if (existingFood.getImagePath() != null) {
                     Path oldImagePath = Paths.get("uploads/images/" + existingFood.getImagePath().replace("/images/", ""));
                     try {
                         Files.deleteIfExists(oldImagePath);
                         logger.info("Old image deleted: {}", existingFood.getImagePath());
                     } catch (IOException e) {
-                        logger.warn("Failed to delete old image: {}", e.getMessage());
+                        logger.warn("Failed to delete old image: {}", e.getMessage(), e);
                     }
                 }
-                // Store new image
                 newImagePath = fileStorageService.storeFile(image);
-                logger.info("New image uploaded: {}", newImagePath);
+                logger.info("New image saved with path: {}", newImagePath);
+            } else {
+                logger.info("No new image provided for update");
             }
-
-            // Update food item with the new values
-            existingFood.setName(foodDto.getName());
-            existingFood.setDescription(foodDto.getDescription());
-            existingFood.setPrice(foodDto.getPrice());
-            existingFood.setAvailable(foodDto.getAvailable());
             existingFood.setImagePath(newImagePath);
-
             FoodItem updatedFood = foodItemService.saveFood(existingFood);
+
+            // Map back to DTO for response
             FoodItemDto responseDto = new FoodItemDto();
-            responseDto.setName(updatedFood.getName());
-            responseDto.setDescription(updatedFood.getDescription());
-            responseDto.setPrice(updatedFood.getPrice());
-            responseDto.setAvailable(updatedFood.getAvailable());
-            responseDto.setImagePath(updatedFood.getImagePath());
+            mapFoodToDto(updatedFood, responseDto);
             return ResponseEntity.ok(responseDto);
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid input: {}", e.getMessage());
+            logger.warn("Invalid input during image upload: {}", e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (IOException e) {
+            logger.error("IO error during image upload: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to upload image: " + e.getMessage());
         } catch (Exception e) {
-            logger.error("Error updating food item: {}", e.getMessage());
+            logger.error("Error updating food item: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to update food item: " + e.getMessage());
         }
@@ -244,7 +225,7 @@ public class FoodItemRestController {
                     Files.deleteIfExists(imagePath);
                     logger.info("Image deleted: {}", existingFood.getImagePath());
                 } catch (IOException e) {
-                    logger.warn("Failed to delete image: {}", e.getMessage());
+                    logger.warn("Failed to delete image: {}", e.getMessage(), e);
                 }
             }
             // Delete food item from database
@@ -252,7 +233,7 @@ public class FoodItemRestController {
             logger.info("Food item with id {} deleted", id);
             return ResponseEntity.ok().body("Food item deleted successfully");
         } catch (Exception e) {
-            logger.error("Error deleting food item: {}", e.getMessage());
+            logger.error("Error deleting food item: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to delete food item: " + e.getMessage());
         }
@@ -263,16 +244,18 @@ public class FoodItemRestController {
             @RequestParam(required = false) Boolean available,
             @RequestParam(required = false) String startsWith,
             @RequestParam(required = false) Double minPrice,
-            @RequestParam(required = false) Double maxPrice) {
-        logger.info("Received search request: available={}, startsWith={}, minPrice={}, maxPrice={}",
-                available, startsWith, minPrice, maxPrice);
+            @RequestParam(required = false) Double maxPrice,
+            @RequestParam(required = false) Set<String> tags,
+            @RequestParam(required = false) String preparationTime) {
+        logger.info("Received search request: available={}, startsWith={}, minPrice={}, maxPrice={}, tags={}, preparationTime={}",
+                available, startsWith, minPrice, maxPrice, tags, preparationTime);
 
         try {
             List<FoodItem> foods;
-            if (available == null && startsWith == null && minPrice == null && maxPrice == null) {
+            if (available == null && startsWith == null && minPrice == null && maxPrice == null && tags == null && preparationTime == null) {
                 foods = foodItemService.getAllFoods(); // Fetch all if no filters
             } else {
-                foods = foodItemService.searchFoods(available, startsWith, minPrice, maxPrice);
+                foods = foodItemService.searchFoods(available, startsWith, minPrice, maxPrice, tags, preparationTime);
             }
             if (foods.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NO_CONTENT).body(foods);
@@ -282,5 +265,109 @@ public class FoodItemRestController {
             logger.error("Error searching food items: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
+    }
+
+    @GetMapping("/tag")
+    public ResponseEntity<List<FoodItem>> findByTag(
+            @RequestParam String tag) {
+        try {
+            List<FoodItem> foods = foodItemService.findByTag(tag);
+            if (foods.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(foods);
+            }
+            return ResponseEntity.ok(foods);
+        } catch (Exception e) {
+            logger.error("Error fetching food items by tag: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    @GetMapping("/sort/price")
+    public ResponseEntity<List<FoodItem>> getAllByPriceAsc() {
+        try {
+            List<FoodItem> foods = foodItemService.getAllByPriceAsc();
+            if (foods.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(foods);
+            }
+            return ResponseEntity.ok(foods);
+        } catch (Exception e) {
+            logger.error("Error sorting food items by price: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    @GetMapping("/sort/discount")
+    public ResponseEntity<List<FoodItem>> getAllByDiscountPercentageDesc() {
+        try {
+            List<FoodItem> foods = foodItemService.getAllByDiscountPercentageDesc();
+            if (foods.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(foods);
+            }
+            return ResponseEntity.ok(foods);
+        } catch (Exception e) {
+            logger.error("Error sorting food items by discount: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    // Helper methods
+    private Double parseDouble(String value, String fieldName) {
+        if (value == null) return null;
+        try {
+            Double result = Double.parseDouble(value);
+            if (result <= 0) {
+                throw new NumberFormatException();
+            }
+            return result;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(fieldName + " must be a valid number and positive");
+        }
+    }
+
+    private Double parseDouble(String value, String fieldName, boolean positive) {
+        if (value == null) return null;
+        try {
+            Double result = Double.parseDouble(value);
+            if (positive && result <= 0) {
+                throw new NumberFormatException();
+            }
+            return result;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(fieldName + " must be a valid number" + (positive ? " and positive" : ""));
+        }
+    }
+
+    private Double parseDiscountPercentage(String value) {
+        if (value == null) return null;
+        try {
+            Double result = Double.parseDouble(value);
+            if (result < 0 || result > 100) {
+                throw new NumberFormatException();
+            }
+            return result;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Discount percentage must be between 0 and 100");
+        }
+    }
+
+    private Boolean parseBoolean(String value, String fieldName) {
+        if (value == null) return null;
+        try {
+            return Boolean.parseBoolean(value);
+        } catch (Exception e) {
+            throw new IllegalArgumentException(fieldName + " must be a valid boolean (true/false)");
+        }
+    }
+
+    private void mapFoodToDto(FoodItem food, FoodItemDto dto) {
+        dto.setName(food.getName() != null ? food.getName() : "");
+        dto.setDescription(food.getDescription() != null ? food.getDescription() : "");
+        dto.setPrice(food.getPrice());
+        dto.setOriginalPrice(food.getOriginalPrice());
+        dto.setAvailable(food.getAvailable());
+        dto.setImagePath(food.getImagePath() != null ? food.getImagePath() : "");
+        dto.setPreparationTime(food.getPreparationTime() != null ? food.getPreparationTime() : "");
+        dto.setTags(food.getTags() != null ? new HashSet<>(food.getTags()) : new HashSet<>());
+        dto.setDiscountPercentage(food.getDiscountPercentage());
     }
 }

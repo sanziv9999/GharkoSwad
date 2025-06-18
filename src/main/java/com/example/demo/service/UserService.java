@@ -20,6 +20,9 @@ public class UserService {
     }
 
     public User saveUser(User user) {
+        if (user.getRole() == null || user.getRole().isEmpty() || (!user.getRole().equals("CHEF") && !user.getRole().equals("USER"))) {
+            user.setRole("USER");
+        }
         return userRepository.save(user);
     }
 }
