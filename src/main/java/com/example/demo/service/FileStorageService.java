@@ -21,7 +21,7 @@ public class FileStorageService {
     public FileStorageService() {
         try {
             Files.createDirectories(Paths.get(uploadDir));
-            logger.info("Upload directory created or verified: {}", uploadDir);
+            logger.info("Upload directory created: {}", uploadDir);
         } catch (IOException e) {
             logger.error("Could not create upload directory: {}", e.getMessage(), e);
             throw new RuntimeException("Could not create upload directory", e);
@@ -30,14 +30,14 @@ public class FileStorageService {
 
     public String storeFile(MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
-            logger.warn("Attempted to store a null or empty file: {}", file == null ? "null" : file.getOriginalFilename());
-            throw new IllegalArgumentException("File is null or empty");
+            logger.warn("Attempted to store an empty or null file");
+            throw new IllegalArgumentException("File is empty or null");
         }
 
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
-            logger.warn("Invalid file type detected: {}", contentType);
-            throw new IllegalArgumentException("Only image files are allowed. Detected: " + contentType);
+            logger.warn("Invalid file type: {}", contentType);
+            throw new IllegalArgumentException("Only image files are allowed");
         }
 
         String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
@@ -45,10 +45,10 @@ public class FileStorageService {
 
         try {
             Files.write(filePath, file.getBytes());
-            logger.info("File successfully saved to: {}", filePath);
+            logger.info("File saved successfully: {}", filePath);
             return "/images/" + fileName;
         } catch (IOException e) {
-            logger.error("Failed to save file {} to {}: {}", file.getOriginalFilename(), filePath, e.getMessage(), e);
+            logger.error("Failed to save file {}: {}", fileName, e.getMessage(), e);
             throw e; // Re-throw to be caught by the controller
         }
     }

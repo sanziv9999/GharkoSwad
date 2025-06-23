@@ -8,6 +8,8 @@ import jakarta.validation.constraints.Size;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 @Entity
 public class FoodItem {
     @Id
@@ -25,6 +27,7 @@ public class FoodItem {
     private Double price;
 
     @NotNull
+    @Positive
     private Double originalPrice; // To store the pre-discount price
 
     @NotNull
@@ -39,6 +42,11 @@ public class FoodItem {
 
     private Double discountPercentage; // e.g., 20.0 for 20% off
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    @JsonBackReference
+    private User user; // Reference to the user who added this food item
+
     // Constructors
     public FoodItem() {
         this.price = 0.0; // Default value, will be recalculated
@@ -48,7 +56,7 @@ public class FoodItem {
     }
 
     public FoodItem(String name, String description, Double price, Double originalPrice, Boolean available, String imagePath,
-                    String preparationTime, Set<String> tags, Double discountPercentage) {
+                    String preparationTime, Set<String> tags, Double discountPercentage, User user) {
         this.name = name;
         this.description = description;
         this.originalPrice = originalPrice != null ? originalPrice : 0.0;
@@ -57,6 +65,7 @@ public class FoodItem {
         this.preparationTime = preparationTime != null ? preparationTime : "";
         this.tags = tags != null ? new HashSet<>(tags) : new HashSet<>();
         this.discountPercentage = discountPercentage != null ? discountPercentage : 0.0;
+        this.user = user;
         calculatePrice(); // Calculate price based on originalPrice and discountPercentage
     }
 
@@ -152,5 +161,13 @@ public class FoodItem {
     public void setDiscountPercentage(Double discountPercentage) {
         this.discountPercentage = discountPercentage != null && discountPercentage >= 0 && discountPercentage <= 100 ? discountPercentage : this.discountPercentage;
         calculatePrice(); // Recalculate price when discountPercentage changes
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 }

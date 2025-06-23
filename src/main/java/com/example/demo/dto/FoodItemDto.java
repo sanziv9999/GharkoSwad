@@ -31,13 +31,16 @@ public class FoodItemDto {
     @DecimalMax(value = "100.0", message = "Discount percentage must not exceed 100")
     private Double discountPercentage;
 
+    // New field for userId to represent the User association
+    private Long userId;
+
     // No-args constructor
     public FoodItemDto() {
     }
 
     // All-args constructor
     public FoodItemDto(String name, String description, Double price, Double originalPrice, Boolean available,
-                       String imagePath, String preparationTime, Set<String> tags, Double discountPercentage) {
+                       String imagePath, String preparationTime, Set<String> tags, Double discountPercentage, Long userId) {
         this.name = name;
         this.description = description;
         this.price = price; // Can be null if calculated
@@ -47,6 +50,7 @@ public class FoodItemDto {
         this.preparationTime = preparationTime;
         this.tags = tags != null ? new HashSet<>(tags) : null; // Defensive copy
         this.discountPercentage = discountPercentage;
+        this.userId = userId;
     }
 
     // Getters and setters
@@ -68,4 +72,6 @@ public class FoodItemDto {
     public void setTags(Set<String> tags) { this.tags = tags != null ? new HashSet<>(tags) : null; } // Defensive copy
     public Double getDiscountPercentage() { return discountPercentage; }
     public void setDiscountPercentage(Double discountPercentage) { this.discountPercentage = discountPercentage; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
 }
