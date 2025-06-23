@@ -62,11 +62,11 @@ export const AuthProvider = ({ children }) => {
     token,
     login,
     logout,
+    setUser, // Expose setUser directly for OTPVerification
     isAuthenticated: !!user,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// Export AuthContext for use in components
 export { AuthContext };

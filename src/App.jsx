@@ -12,6 +12,7 @@ import OTPVerification from './pages/auth/OTPVerification';
 import ResetPassword from './pages/auth/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import { AuthContext, AuthProvider } from './context/AuthContext';
+import ChefDashboard from './pages/chef/ChefDashboard';
 
 // ProtectedRoute component to restrict access based on role
 const ProtectedRoute = ({ children, allowedRole }) => {
@@ -40,7 +41,8 @@ function App() {
               <Route path="/signup" element={<Signup />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/otp" element={<OTPVerification />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />``
+              <Route path="/chef-dashboard" element={<ChefDashboard />} />
               <Route
                 path="/dashboard"
                 element={

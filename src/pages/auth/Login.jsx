@@ -65,7 +65,7 @@ const Login = () => {
       localStorage.setItem('user', JSON.stringify(userData));
       login(userData, token); // Use AuthContext login
       // Redirect based on role
-      navigate(user.role === 'CHEF' ? '/dashboard' : '/menu');
+      navigate(user.role === 'CHEF' ? '/chef-dashboard' : '/menu');
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {

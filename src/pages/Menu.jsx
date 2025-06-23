@@ -1,122 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, Star, Plus, Heart, Clock, Users } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import { apiService } from '../api/apiService'; 
+import imagePathService from '../services/imageLocation/imagePath'; 
 
 const Menu = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [menuItems, setMenuItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch food items from the API
+  useEffect(() => {
+    const fetchFoods = async () => {
+      try {
+        setLoading(true);
+        const response = await apiService.getAllFoods(); // Fetch all foods
+        setMenuItems(response || []); // Set the fetched data
+        setError(null);
+      } catch (err) {
+        setError(err.message || 'Failed to fetch menu items');
+        console.error('Error fetching menu items:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFoods();
+  }, []);
 
   const categories = [
-    { id: 'all', name: 'All Items', count: 24 },
-    { id: 'main', name: 'Main Dishes', count: 12 },
-    { id: 'breakfast', name: 'Breakfast', count: 6 },
-    { id: 'dessert', name: 'Desserts', count: 4 },
-    { id: 'beverages', name: 'Beverages', count: 8 },
-  ];
-
-  const menuItems = [
-    {
-      id: 1,
-      name: 'Traditional Dal Bhat',
-      description: 'Authentic Nepali dal bhat with seasonal vegetables, pickles, and papad served with love',
-      price: 180,
-      originalPrice: 220,
-      rating: 4.8,
-      reviews: 245,
-      image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=400',
-      category: 'main',
-      tags: ['Popular', 'Vegetarian', 'Healthy'],
-      cookingTime: '25-30 min',
-      serves: '1-2 people',
-      chef: 'Ama Didi Kitchen',
-      isPopular: true,
-      discount: 18
-    },
-    {
-      id: 2,
-      name: 'Momo Platter Special',
-      description: 'Hand-made steamed dumplings served with spicy tomato chutney and soup',
-      price: 120,
-      originalPrice: 150,
-      rating: 4.9,
-      reviews: 189,
-      image: 'https://images.pexels.com/photos/2097090/pexels-photo-2097090.jpeg?auto=compress&cs=tinysrgb&w=400',
-      category: 'main',
-      tags: ['Bestseller', 'Spicy'],
-      cookingTime: '20-25 min',
-      serves: '1 person',
-      chef: 'Newari Kitchen',
-      isPopular: true,
-      discount: 20
-    },
-    {
-      id: 3,
-      name: 'Newari Khaja Set',
-      description: 'Traditional Newari snack platter with various authentic delicacies and chutneys',
-      price: 250,
-      rating: 4.7,
-      reviews: 156,
-      image: 'https://images.pexels.com/photos/769289/pexels-photo-769289.jpeg?auto=compress&cs=tinysrgb&w=400',
-      category: 'main',
-      tags: ['Traditional', 'Premium'],
-      cookingTime: '35-40 min',
-      serves: '2-3 people',
-      chef: 'Heritage Kitchen',
-      isPopular: false,
-      discount: 0
-    },
-    {
-      id: 4,
-      name: 'Sel Roti with Gundruk',
-      description: 'Traditional ring-shaped rice bread served with fermented leafy greens',
-      price: 60,
-      originalPrice: 80,
-      rating: 4.6,
-      reviews: 98,
-      image: 'https://images.pexels.com/photos/376464/pexels-photo-376464.jpeg?auto=compress&cs=tinysrgb&w=400',
-      category: 'breakfast',
-      tags: ['Traditional', 'Light'],
-      cookingTime: '15-20 min',
-      serves: '1 person',
-      chef: 'Village Kitchen',
-      isPopular: false,
-      discount: 25
-    },
-    {
-      id: 5,
-      name: 'Yomari Delight',
-      description: 'Sweet steamed dumplings filled with molasses, sesame seeds, and coconut',
-      price: 80,
-      rating: 4.5,
-      reviews: 67,
-      image: 'https://images.pexels.com/photos/291528/pexels-photo-291528.jpeg?auto=compress&cs=tinysrgb&w=400',
-      category: 'dessert',
-      tags: ['Sweet', 'Festival Special'],
-      cookingTime: '20-25 min',
-      serves: '1 person',
-      chef: 'Sweet Home',
-      isPopular: false,
-      discount: 0
-    },
-    {
-      id: 6,
-      name: 'Authentic Masala Chai',
-      description: 'Aromatic spiced tea brewed with fresh herbs, ginger, and cardamom',
-      price: 40,
-      originalPrice: 50,
-      rating: 4.8,
-      reviews: 234,
-      image: 'https://images.pexels.com/photos/1099680/pexels-photo-1099680.jpeg?auto=compress&cs=tinysrgb&w=400',
-      category: 'beverages',
-      tags: ['Hot', 'Refreshing'],
-      cookingTime: '5-10 min',
-      serves: '1 person',
-      chef: 'Chai Corner',
-      isPopular: true,
-      discount: 20
-    }
+    { id: 'all', name: 'All Items', count: menuItems.length },
+    { id: 'main', name: 'Main Dishes', count: menuItems.filter(item => item.category === 'main').length },
+    { id: 'breakfast', name: 'Breakfast', count: menuItems.filter(item => item.category === 'breakfast').length },
+    { id: 'dessert', name: 'Desserts', count: menuItems.filter(item => item.category === 'dessert').length },
+    { id: 'beverages', name: 'Beverages', count: menuItems.filter(item => item.category === 'beverages').length },
   ];
 
   const filteredItems = menuItems.filter(item => {
@@ -125,6 +46,25 @@ const Menu = () => {
                          item.description.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 flex items-center justify-center">
+        <p className="text-lg text-gray-600">Loading menu items...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 flex items-center justify-center">
+        <Card className="p-6 text-center">
+          <p className="text-red-600 mb-4">Error: {error}</p>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -188,21 +128,21 @@ const Menu = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredItems.map((item) => (
             <Card key={item.id} className="overflow-hidden group" hover>
-              <div className="relative">
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
-                />
+               <div className="relative">
+                  <img
+                    src={imagePathService.getImageUrl(item.imagePath || item.image)}
+                    alt={item.name}
+                    className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
                 <div className="absolute top-4 left-4 flex flex-wrap gap-2">
                   {item.isPopular && (
                     <Badge variant="success">
                       🔥 Popular
                     </Badge>
                   )}
-                  {item.discount > 0 && (
+                  {item.discountPercentage > 0 && (
                     <Badge variant="error" className="bg-red-500 text-white">
-                      {item.discount}% OFF
+                      {item.discountPercentage}% OFF
                     </Badge>
                   )}
                 </div>
@@ -215,11 +155,11 @@ const Menu = () => {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 mb-1">{item.name}</h3>
-                    <p className="text-sm text-gray-600">by {item.chef}</p>
+                    <p className="text-sm text-gray-600">by {item.chef || 'Unknown Chef'}</p>
                   </div>
                   <div className="flex items-center space-x-1">
                     <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                    <span className="text-sm font-medium text-gray-700">{item.rating}</span>
+                    <span className="text-sm font-medium text-gray-700">{item.rating || 0}</span>
                   </div>
                 </div>
                 
@@ -236,11 +176,11 @@ const Menu = () => {
                 <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
                   <div className="flex items-center space-x-1">
                     <Clock className="w-4 h-4" />
-                    <span>{item.cookingTime}</span>
+                    <span>{item.preparationTime || 'N/A'}</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <Users className="w-4 h-4" />
-                    <span>{item.serves}</span>
+                    <span>{item.serves || 'N/A'}</span>
                   </div>
                 </div>
                 
@@ -252,7 +192,7 @@ const Menu = () => {
                         <span className="text-lg text-gray-500 line-through">₹{item.originalPrice}</span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-500">({item.reviews} reviews)</p>
+                    <p className="text-sm text-gray-500">{item.reviews || 0} reviews</p>
                   </div>
                   <Button className="flex items-center space-x-2 px-6">
                     <Plus className="w-4 h-4" />

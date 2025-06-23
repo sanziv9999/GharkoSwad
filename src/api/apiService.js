@@ -4,6 +4,9 @@ const handleResponse = async (response) => {
   const contentType = response.headers.get('content-type');
   let errorMessage = 'Something went wrong';
 
+  console.log('Response status:', response.status);
+  console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
   if (!response.ok) {
     if (contentType && contentType.includes('application/json')) {
       const error = await response.json();
@@ -11,13 +14,16 @@ const handleResponse = async (response) => {
     } else {
       errorMessage = await response.text() || errorMessage;
     }
-    console.error(`API error: ${response.status} - ${errorMessage}`);
+    console.error(`API error: ${response.status} - ${errorMessage} - URL: ${response.url}`);
     throw new Error(errorMessage);
   }
 
   if (contentType && contentType.includes('application/json')) {
     const result = await response.json();
     console.log('API response:', result);
+    if (Array.isArray(result)) {
+      return { status: 'success', data: result }; // Wrap array in a success object
+    }
     if (result.status !== 'success') {
       throw new Error(result.message || 'Operation failed');
     }
@@ -88,6 +94,7 @@ export const apiService = {
       ...API_CONFIG.HEADERS,
       ...(token && { Authorization: `Bearer ${token}` }),
     };
+    console.log('Request headers:', headers);
     const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
       method: 'GET',
       headers,
@@ -107,5 +114,76 @@ export const apiService = {
       body: JSON.stringify(data),
     });
     return handleResponse(response);
+  },
+
+  async postMultipart(endpoint, formData, token = null) {
+    console.log(`Multipart POST request: ${endpoint}`, formData);
+    const headers = {
+      ...(token && { Authorization: `Bearer ${token}` }), // Omit Content-Type for multipart
+    };
+    const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    return handleResponse(response);
+  },
+
+  async patchMultipart(endpoint, formData, token = null) {
+    console.log(`Multipart PATCH request: ${endpoint}`, formData);
+    const headers = {
+      ...(token && { Authorization: `Bearer ${token}` }), // Omit Content-Type for multipart
+    };
+    const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
+      method: 'PATCH',
+      headers,
+      body: formData,
+    });
+    return handleResponse(response);
+  },
+
+  async delete(endpoint, token = null) {
+    console.log(`DELETE request: ${endpoint}`);
+    const headers = {
+      ...API_CONFIG.HEADERS,
+      ...(token && { Authorization: `Bearer ${token}` }),
+    };
+    const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
+      method: 'DELETE',
+      headers,
+    });
+    return handleResponse(response);
+  },
+
+  async getFoodsById(id, params = {}, token = null) {
+    const queryString = new URLSearchParams({ userId: id, ...params }).toString();
+    const endpoint = `/food/list/by-user${queryString ? `?${queryString}` : ''}`;
+    const tokenFromStorage = localStorage.getItem('token');
+    console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
+    const result = await this.get(endpoint, tokenFromStorage);
+    return Array.isArray(result.data) ? result.data : [result.data]; // Adjust based on API response
+  },
+
+  async addFood(formData, token = null) {
+    const tokenFromStorage = localStorage.getItem('token');
+    return this.postMultipart('/food/add', formData, tokenFromStorage);
+  },
+
+  async updateFood(id, formData, token = null) {
+    const tokenFromStorage = localStorage.getItem('token');
+    return this.patchMultipart(`/food/update/${id}`, formData, tokenFromStorage);
+  },
+
+  async deleteFood(id, token = null) {
+    const tokenFromStorage = localStorage.getItem('token');
+    return this.delete(`/food/delete/${id}`, tokenFromStorage);
+  },
+
+  // New method to fetch all food items
+  async getAllFoods(token = null) {
+    const tokenFromStorage = localStorage.getItem('token');
+    console.log(`Requesting: ${API_CONFIG.BASE_URL}/food/list with token: ${tokenFromStorage}`);
+    const result = await this.get('/food/list', tokenFromStorage);
+    return Array.isArray(result.data) ? result.data : [result.data]; // Ensure data is an array
   },
 };

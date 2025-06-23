@@ -1,11 +1,11 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, CheckCircle } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
 import { apiService } from '../../api/apiService';
-import { AuthContext } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
 const OTPVerification = () => {
   const [formData, setFormData] = useState({
@@ -15,7 +15,20 @@ const OTPVerification = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const { setUser } = useContext(AuthContext);
+  const { setUser } = useAuth();
+
+  // Fetch only email from localStorage on component mount
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem('tempUser') || '{}');
+    if (storedUser.email) {
+      setFormData((prev) => ({
+        ...prev,
+        email: storedUser.email,
+      }));
+    } else {
+      setError('No email found. Please sign up again.');
+    }
+  }, []);
 
   const handleChange = (e) => {
     setFormData((prev) => ({
@@ -34,6 +47,17 @@ const OTPVerification = () => {
         email: formData.email,
         otpCode: formData.otpCode,
       });
+
+      // Check if response indicates an error
+      if (response.status === 'error') {
+        throw new Error(response.message || 'OTP verification failed.');
+      }
+
+      // Handle successful response with nested data
+      if (!response.data || !response.data.user || !response.data.token) {
+        throw new Error('Invalid response format from server.');
+      }
+
       const { user, token } = response.data;
       const userData = {
         id: user.id,
@@ -41,10 +65,19 @@ const OTPVerification = () => {
         email: user.email,
         role: user.role,
       };
+
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.removeItem('tempUser'); // Clean up temporary user data
+      localStorage.removeItem('tempUser');
+
+      // Verify setUser is a function before calling
+      if (typeof setUser !== 'function') {
+        console.error('setUser is not a function:', setUser);
+        throw new Error('Authentication context is not properly configured.');
+      }
+
       setUser(userData);
+
       // Redirect based on role
       navigate(user.role === 'CHEF' ? '/dashboard' : '/menu');
     } catch (err) {
@@ -77,19 +110,6 @@ const OTPVerification = () => {
           )}
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-4">
-              <div className="relative">
-                <Input
-                  label="Email address"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="Enter your email"
-                  required
-                  className="pl-12"
-                />
-                <Mail className="absolute left-4 top-9 w-5 h-5 text-gray-400" />
-              </div>
               <div className="relative">
                 <Input
                   label="OTP Code"
