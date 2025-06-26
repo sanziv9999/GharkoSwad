@@ -1,13 +1,88 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, MapPin, Star, ChefHat, Clock, Gift, ShoppingBag, ArrowRight, Truck, Shield, Heart } from 'lucide-react';
+import { Play, MapPin, Star, ChefHat, Clock, Gift, ShoppingBag, ArrowRight, Truck, Shield, Heart, Plus } from 'lucide-react';
+import { useCart } from '../context/CartContext';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import Banner from '../components/ui/Banner';
 
 const Home = () => {
+  const { addToCart } = useCart();
+  const [banner, setBanner] = useState({ show: false, type: '', message: '' });
+
+  const showBanner = (type, message) => {
+    setBanner({ show: true, type, message });
+    setTimeout(() => setBanner({ show: false, type: '', message: '' }), 3000);
+  };
+
+  const handleAddToCart = (item) => {
+    addToCart(item);
+    showBanner('success', `${item.name} added to cart!`);
+  };
+
+  const featuredItems = [
+    {
+      id: 1,
+      name: 'Puri Tarkari',
+      price: 120.00,
+      originalPrice: 150.00,
+      image: 'https://images.pexels.com/photos/769289/pexels-photo-769289.jpeg?auto=compress&cs=tinysrgb&w=400',
+      chef: 'Ama Didi Kitchen',
+      rating: 4.8,
+      preparationTime: '20-25 min',
+      serves: '1 person'
+    },
+    {
+      id: 2,
+      name: 'Dal Bhat',
+      price: 180.00,
+      originalPrice: 220.00,
+      image: 'https://images.pexels.com/photos/1833336/pexels-photo-1833336.jpeg?auto=compress&cs=tinysrgb&w=400',
+      chef: 'Newari Kitchen',
+      rating: 4.9,
+      preparationTime: '25-30 min',
+      serves: '1-2 people'
+    }
+  ];
+
+  const specialOffers = [
+    {
+      title: 'Family Feast Combo',
+      description: 'Dal Bhat + Momo + Achar + Lassi for 4 people',
+      originalPrice: 800.00,
+      discountedPrice: 599.00,
+      discount: 25,
+      image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=400'
+    },
+    {
+      title: 'Student Special',
+      description: 'Budget-friendly combo with Dal Bhat + Tea',
+      originalPrice: 250.00,
+      discountedPrice: 180.00,
+      discount: 28,
+      image: 'https://images.pexels.com/photos/1833336/pexels-photo-1833336.jpeg?auto=compress&cs=tinysrgb&w=400'
+    },
+    {
+      title: 'First Order 50% Off',
+      description: 'New users get 50% discount on first order',
+      originalPrice: 300.00,
+      discountedPrice: 150.00,
+      discount: 50,
+      image: 'https://images.pexels.com/photos/2097090/pexels-photo-2097090.jpeg?auto=compress&cs=tinysrgb&w=400'
+    }
+  ];
+
   return (
     <div className="bg-white">
+      {banner.show && (
+        <Banner 
+          type={banner.type} 
+          message={banner.message} 
+          onClose={() => setBanner({ show: false, type: '', message: '' })}
+        />
+      )}
+
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-primary-50 via-white to-primary-50/30 py-24 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -30,10 +105,12 @@ const Home = () => {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-6">
-                <Button size="lg" className="px-10 py-4 text-lg shadow-lg hover:shadow-xl">
-                  <ShoppingBag className="w-5 h-5 mr-2" />
-                  Order Now
-                </Button>
+                <Link to="/menu">
+                  <Button size="lg" className="px-10 py-4 text-lg shadow-lg hover:shadow-xl">
+                    <ShoppingBag className="w-5 h-5 mr-2" />
+                    Order Now
+                  </Button>
+                </Link>
                 <button className="flex items-center space-x-3 px-8 py-4 text-gray-700 hover:text-primary-600 transition-all duration-300 group">
                   <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
                     <Play className="w-6 h-6 text-primary-500 ml-1" />
@@ -70,47 +147,49 @@ const Home = () => {
                   />
                   
                   {/* Floating Cards */}
-                  <Card className="absolute -bottom-6 -left-6 p-4 shadow-xl animate-bounce-gentle" hover>
-                    <div className="flex items-center space-x-3">
-                      <img
-                        src="https://images.pexels.com/photos/769289/pexels-photo-769289.jpeg?auto=compress&cs=tinysrgb&w=100"
-                        alt="Puri Tarkari"
-                        className="w-14 h-14 rounded-xl object-cover"
-                      />
-                      <div>
-                        <p className="font-bold text-gray-900">Puri Tarkari</p>
-                        <p className="text-primary-600 font-semibold">₹ 120</p>
-                        <div className="flex items-center space-x-1">
-                          <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                          <span className="text-xs text-gray-600">4.8</span>
+                  {featuredItems.map((item, index) => (
+                    <Card 
+                      key={item.id}
+                      className={`absolute p-4 shadow-xl animate-bounce-gentle ${
+                        index === 0 ? '-bottom-6 -left-6' : '-top-6 -right-6'
+                      }`} 
+                      style={{ animationDelay: `${index * 0.5}s` }}
+                      hover
+                    >
+                      <div className="flex items-center space-x-3">
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-14 h-14 rounded-xl object-cover"
+                        />
+                        <div>
+                          <p className="font-bold text-gray-900">{item.name}</p>
+                          <div className="flex items-center space-x-2">
+                            <p className="text-primary-600 font-semibold">₹{item.price.toFixed(2)}</p>
+                            {item.originalPrice && (
+                              <p className="text-xs text-gray-500 line-through">₹{item.originalPrice.toFixed(2)}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                            <span className="text-xs text-gray-600">{item.rating}</span>
+                          </div>
                         </div>
+                        <button
+                          onClick={() => handleAddToCart(item)}
+                          className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center hover:bg-primary-600 transition-colors duration-200"
+                        >
+                          <Plus className="w-4 h-4 text-white" />
+                        </button>
                       </div>
-                    </div>
-                  </Card>
-                  
-                  <Card className="absolute -top-6 -right-6 p-4 shadow-xl animate-bounce-gentle" style={{animationDelay: '0.5s'}} hover>
-                    <div className="flex items-center space-x-3">
-                      <img
-                        src="https://images.pexels.com/photos/1833336/pexels-photo-1833336.jpeg?auto=compress&cs=tinysrgb&w=100"
-                        alt="Dal Bhat"
-                        className="w-14 h-14 rounded-xl object-cover"
-                      />
-                      <div>
-                        <p className="font-bold text-gray-900">Dal Bhat</p>
-                        <p className="text-primary-600 font-semibold">₹ 180</p>
-                        <div className="flex items-center space-x-1">
-                          <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                          <span className="text-xs text-gray-600">4.9</span>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
+                    </Card>
+                  ))}
                 </Card>
 
                 {/* Decorative Elements */}
                 <div className="absolute top-1/4 -left-8 w-6 h-6 bg-orange-400 rounded-full animate-bounce-gentle"></div>
-                <div className="absolute bottom-1/3 -right-4 w-4 h-4 bg-red-400 rounded-full animate-bounce-gentle" style={{animationDelay: '0.5s'}}></div>
-                <div className="absolute top-1/2 -right-12 w-3 h-3 bg-yellow-400 rounded-full animate-bounce-gentle" style={{animationDelay: '1s'}}></div>
+                <div className="absolute bottom-1/3 -right-4 w-4 h-4 bg-red-400 rounded-full animate-bounce-gentle" style={{ animationDelay: '0.5s' }}></div>
+                <div className="absolute top-1/2 -right-12 w-3 h-3 bg-yellow-400 rounded-full animate-bounce-gentle" style={{ animationDelay: '1s' }}></div>
               </div>
             </div>
           </div>
@@ -156,28 +235,94 @@ const Home = () => {
                 color: 'bg-primary-100 text-primary-600'
               },
             ].map((category, index) => (
-              <Card
-                key={index}
-                className="p-8 text-center cursor-pointer group"
-                hover
-              >
-                <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center ${category.color} group-hover:scale-110 transition-transform duration-300`}>
-                  <img
-                    src={category.image}
-                    alt={category.name}
-                    className="w-12 h-12 rounded-xl object-cover"
-                  />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">{category.name}</h3>
-                <p className="text-gray-600">({category.count})</p>
-              </Card>
+              <Link key={index} to="/menu">
+                <Card
+                  className="p-8 text-center cursor-pointer group"
+                  hover
+                >
+                  <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center ${category.color} group-hover:scale-110 transition-transform duration-300`}>
+                    <img
+                      src={category.image}
+                      alt={category.name}
+                      className="w-12 h-12 rounded-xl object-cover"
+                    />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">{category.name}</h3>
+                  <p className="text-gray-600">({category.count})</p>
+                </Card>
+              </Link>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Special Offers Section */}
       <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <Badge variant="error" size="md" className="mb-4 bg-red-500 text-white">
+              🎉 Limited Time Offers
+            </Badge>
+            <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
+              Special <span className="text-primary-500">Deals</span> & Combos
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Save big with our exclusive combo sets and limited-time discounts
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            {specialOffers.map((offer, index) => (
+              <Card key={index} className="overflow-hidden group" hover>
+                <div className="relative">
+                  <img
+                    src={offer.image}
+                    alt={offer.title}
+                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute top-4 left-4">
+                    <Badge variant="error" className="bg-red-500 text-white font-bold">
+                      {offer.discount}% OFF
+                    </Badge>
+                  </div>
+                  <div className="absolute top-4 right-4">
+                    <div className="bg-green-500 text-white px-2 py-1 rounded-full text-sm font-bold">
+                      Save ₹{(offer.originalPrice - offer.discountedPrice).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">{offer.title}</h3>
+                  <p className="text-gray-600 mb-4">{offer.description}</p>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <span className="text-2xl font-bold text-gray-900">₹{offer.discountedPrice.toFixed(2)}</span>
+                      <span className="text-lg text-gray-500 line-through ml-2">₹{offer.originalPrice.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <Link to="/offers">
+                    <Button className="w-full">
+                      View Offer
+                    </Button>
+                  </Link>
+                </div>
+              </Card>
+            ))}
+          </div>
+          
+          <div className="text-center">
+            <Link to="/offers">
+              <Button size="lg" className="px-8 py-4 text-lg">
+                <Gift className="w-5 h-5 mr-2" />
+                View All Offers
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-24 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <Badge variant="success" size="md" className="mb-4">
@@ -362,10 +507,12 @@ const Home = () => {
                     className="bg-transparent flex-1 outline-none text-gray-700 text-lg"
                   />
                 </div>
-                <Button className="px-8 py-3 text-lg">
-                  Find Food
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
+                <Link to="/menu">
+                  <Button className="px-8 py-3 text-lg">
+                    Find Food
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </Link>
               </div>
               <div className="mt-6 text-left">
                 <p className="text-sm font-semibold text-gray-700 mb-2">POPULAR CITIES IN NEPAL</p>
@@ -423,8 +570,8 @@ const Home = () => {
                 
                 {/* Floating Elements */}
                 <div className="absolute top-8 right-8 w-6 h-6 bg-orange-400 rounded-full animate-bounce-gentle"></div>
-                <div className="absolute bottom-16 left-8 w-4 h-4 bg-red-400 rounded-full animate-bounce-gentle" style={{animationDelay: '0.5s'}}></div>
-                <div className="absolute top-1/3 right-1/4 w-3 h-3 bg-yellow-400 rounded-full animate-bounce-gentle" style={{animationDelay: '1s'}}></div>
+                <div className="absolute bottom-16 left-8 w-4 h-4 bg-red-400 rounded-full animate-bounce-gentle" style={{ animationDelay: '0.5s' }}></div>
+                <div className="absolute top-1/3 right-1/4 w-3 h-3 bg-yellow-400 rounded-full animate-bounce-gentle" style={{ animationDelay: '1s' }}></div>
                 
                 {/* Decorative Image */}
                 <div className="absolute -bottom-8 -right-8">

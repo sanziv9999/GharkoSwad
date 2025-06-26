@@ -58,12 +58,17 @@ export const apiService = {
 
   async login(credentials) {
     console.log('Login request:', credentials);
-    const response = await fetch(`${API_CONFIG.BASE_URL}/login`, {
-      method: 'POST',
-      headers: API_CONFIG.HEADERS,
-      body: JSON.stringify(credentials),
-    });
-    return handleResponse(response);
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/login`, {
+        method: 'POST',
+        headers: API_CONFIG.HEADERS,
+        body: JSON.stringify(credentials),
+      });
+      return handleResponse(response);
+    } catch (err) {
+      console.error('Fetch error:', err.message, 'URL:', `${API_CONFIG.BASE_URL}/login`);
+      throw err;
+    }
   },
 
   async forgotPassword(email) {

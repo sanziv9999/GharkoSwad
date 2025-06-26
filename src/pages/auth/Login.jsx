@@ -27,7 +27,7 @@ const Login = () => {
         const user = JSON.parse(storedUser);
         if (user.role === 'CHEF' || user.role === 'USER') {
           login(user, storedToken); // Update AuthContext
-          navigate(user.role === 'CHEF' ? '/dashboard' : '/menu');
+          navigate(user.role === 'CHEF' ? '/chef-dashboard' : '/menu');
         }
       } catch (err) {
         console.error('Invalid user data in localStorage:', err);
@@ -50,6 +50,7 @@ const Login = () => {
     setError(null);
 
     try {
+      console.log('Attempting login with:', formData);
       const response = await apiService.login({
         email: formData.email,
         password: formData.password,
@@ -64,10 +65,13 @@ const Login = () => {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       login(userData, token); // Use AuthContext login
-      // Redirect based on role
       navigate(user.role === 'CHEF' ? '/chef-dashboard' : '/menu');
     } catch (err) {
-      setError(err.message || 'Login failed. Please try again.');
+      console.error('Login error:', err);
+      setError(err.message || 'Login failed. Please check your network or credentials.');
+      if (err.message.includes('Failed to fetch')) {
+        console.warn('Possible BASE_URL issue:', API_CONFIG.BASE_URL);
+      }
     } finally {
       setIsLoading(false);
     }

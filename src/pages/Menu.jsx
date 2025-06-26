@@ -5,6 +5,9 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import { apiService } from '../api/apiService'; 
 import imagePathService from '../services/imageLocation/imagePath'; 
+import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
+import { useCart } from '../context/CartContext'; // Verify this path
 
 const Menu = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -12,6 +15,8 @@ const Menu = () => {
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { addToCart } = useCart(); // Only using addToCart
+  const navigate = useNavigate();
 
   // Fetch food items from the API
   useEffect(() => {
@@ -19,7 +24,20 @@ const Menu = () => {
       try {
         setLoading(true);
         const response = await apiService.getAllFoods(); // Fetch all foods
-        setMenuItems(response || []); // Set the fetched data
+        console.log('API Response:', response); // Debug the response structure
+        // Handle the response, expecting data array with fallback
+        const items = Array.isArray(response?.data?.data)
+          ? response.data.data.map((item, index) => ({
+              ...item,
+              id: item.id || `item-${index}`, // Fallback id
+            }))
+          : Array.isArray(response) // Fallback if response is directly an array
+          ? response.map((item, index) => ({
+              ...item,
+              id: item.id || `item-${index}`,
+            }))
+          : [];
+        setMenuItems(items);
         setError(null);
       } catch (err) {
         setError(err.message || 'Failed to fetch menu items');
@@ -76,7 +94,7 @@ const Menu = () => {
               <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-2">Our Menu</h1>
               <p className="text-xl text-gray-600">Discover authentic homemade dishes crafted with love</p>
             </div>
-            <div className="hidden md:flex items-center space-x-4">
+            <div className="flex items-center space-x-4">
               <Badge variant="success">
                 🔥 {menuItems.length} Fresh Items Available
               </Badge>
@@ -128,12 +146,12 @@ const Menu = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredItems.map((item) => (
             <Card key={item.id} className="overflow-hidden group" hover>
-               <div className="relative">
-                  <img
-                    src={imagePathService.getImageUrl(item.imagePath || item.image)}
-                    alt={item.name}
-                    className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+              <div className="relative">
+                <img
+                  src={imagePathService.getImageUrl(item.imagePath || item.image)}
+                  alt={item.name}
+                  className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
+                />
                 <div className="absolute top-4 left-4 flex flex-wrap gap-2">
                   {item.isPopular && (
                     <Badge variant="success">
@@ -187,14 +205,17 @@ const Menu = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center space-x-2">
-                      <span className="text-2xl font-bold text-gray-900">₹{item.price}</span>
+                      <span className="text-2xl font-bold text-gray-900">₹{item.price.toFixed(2)}</span>
                       {item.originalPrice && (
-                        <span className="text-lg text-gray-500 line-through">₹{item.originalPrice}</span>
+                        <span className="text-lg text-gray-500 line-through">₹{item.originalPrice.toFixed(2)}</span>
                       )}
                     </div>
                     <p className="text-sm text-gray-500">{item.reviews || 0} reviews</p>
                   </div>
-                  <Button className="flex items-center space-x-2 px-6">
+                  <Button
+                    onClick={() => addToCart(item)}
+                    className="flex items-center space-x-2 px-6"
+                  >
                     <Plus className="w-4 h-4" />
                     <span>Add to Cart</span>
                   </Button>
