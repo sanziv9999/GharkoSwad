@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -55,17 +56,37 @@ public class FoodItemRestController {
             @RequestParam(required = false) String preparationTime) {
         Map<String, Object> response = new HashMap<>();
         try {
-            Set<String> tagsSet = tags != null ? new HashSet<>(List.of(tags.split(","))) : null;
+            // Handle tags parameter
+            Set<String> tagsSet = null;
+            if (tags != null && !tags.trim().isEmpty()) {
+                tagsSet = Arrays.stream(tags.split(","))
+                        .map(String::trim)
+                        .filter(tag -> !tag.isEmpty())
+                        .collect(Collectors.toCollection(HashSet::new));
+            }
+
+            // Fetch foods
             List<FoodItem> foods = foodItemService.searchFoods(true, name, minPrice, maxPrice, tagsSet, preparationTime);
+
             if (foods.isEmpty()) {
                 response.put("status", "success");
                 response.put("message", "No available food items found");
-                response.put("data", foods);
+                response.put("data", new ArrayList<>());
                 return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
             }
+
+            // Map FoodItem to FoodItemDto with userId
+            List<FoodItemDto> foodDtos = foods.stream()
+                    .map(food -> {
+                        FoodItemDto dto = new FoodItemDto();
+                        mapFoodToDto(food, dto);
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
             response.put("status", "success");
             response.put("message", "Food items retrieved successfully");
-            response.put("data", foods);
+            response.put("data", foodDtos);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error fetching available food items: {}", e.getMessage());
@@ -516,5 +537,9 @@ public class FoodItemRestController {
         dto.setPreparationTime(food.getPreparationTime() != null ? food.getPreparationTime() : "");
         dto.setTags(food.getTags() != null ? new HashSet<>(food.getTags()) : new HashSet<>());
         dto.setDiscountPercentage(food.getDiscountPercentage());
+        // Add userId from the associated User
+        if (food.getUser() != null) {
+            dto.setUserId(food.getUser().getId());
+        }
     }
 }

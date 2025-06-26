@@ -1,6 +1,8 @@
 package com.example.demo.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 
 @Entity
@@ -12,33 +14,43 @@ public class Order {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
+    @NotNull(message = "User cannot be null")
     private User user;
 
     @ManyToOne
     @JoinColumn(name = "food_item_id", nullable = false)
+    @NotNull(message = "Food item cannot be null")
     private FoodItem foodItem;
 
+    @Column(nullable = false)
+    @NotNull(message = "Order date cannot be null")
     private LocalDateTime orderDate;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
+    @NotNull(message = "Order status cannot be null")
     private OrderStatus status;
 
     @Column(nullable = false)
+    @Min(value = 1, message = "Quantity must be at least 1")
     private Integer quantity;
 
     @OneToOne(mappedBy = "order")
     private Payment payment; // Bidirectional relationship with Payment
 
     // Constructors
-    public Order() {}
+    public Order() {
+        this.orderDate = LocalDateTime.now();
+        this.status = OrderStatus.PLACED;
+        this.quantity = 1; // Default quantity
+    }
 
     public Order(User user, FoodItem foodItem, Integer quantity) {
         this.user = user;
         this.foodItem = foodItem;
         this.orderDate = LocalDateTime.now();
         this.status = OrderStatus.PLACED;
-        this.quantity = quantity;
+        this.quantity = (quantity != null && quantity > 0) ? quantity : 1;
     }
 
     // Getters and Setters
@@ -53,13 +65,15 @@ public class Order {
     public OrderStatus getStatus() { return status; }
     public void setStatus(OrderStatus status) { this.status = status; }
     public Integer getQuantity() { return quantity; }
-    public void setQuantity(Integer quantity) { this.quantity = quantity; }
+    public void setQuantity(Integer quantity) { this.quantity = (quantity != null && quantity > 0) ? quantity : 1; }
     public Payment getPayment() { return payment; }
     public void setPayment(Payment payment) { this.payment = payment; }
 
     @Override
     public String toString() {
-        return "Order{id=" + id + ", user=" + user.getId() + ", foodItem=" + foodItem.getId() +
-                ", status=" + status + ", quantity=" + quantity + ", payment=" + (payment != null ? payment.getId() : null) + "}";
+        return "Order{id=" + id + ", user=" + (user != null ? user.getId() : null) + 
+               ", foodItem=" + (foodItem != null ? foodItem.getId() : null) + 
+               ", status=" + status + ", quantity=" + quantity + 
+               ", payment=" + (payment != null ? payment.getId() : null) + "}";
     }
 }

@@ -1,45 +1,45 @@
 package com.example.demo.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
-
+import jakarta.validation.constraints.*;
 import java.util.HashSet;
 import java.util.Set;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
-
 @Entity
+@Table(name = "food_items")
 public class FoodItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotNull
+    @NotNull(message = "Name is required")
     @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
     private String name;
 
     private String description;
 
-    @NotNull
-    @Positive
+    @NotNull(message = "Price is required")
+    @Positive(message = "Price must be positive")
     private Double price;
 
-    @NotNull
-    @Positive
+    @NotNull(message = "Original price is required")
+    @Positive(message = "Original price must be positive")
     private Double originalPrice; // To store the pre-discount price
 
-    @NotNull
+    @NotNull(message = "Availability is required")
     private Boolean available;
 
     private String imagePath; // Stores the path to the image file on the server
 
     private String preparationTime; // e.g., "20-25 min"
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
+    @NotEmpty(message = "Tags cannot be empty")
     private Set<String> tags; // e.g., "Bestseller", "Spicy"
 
+    @DecimalMin(value = "0.0", inclusive = true)
+    @DecimalMax(value = "100.0", inclusive = true)
     private Double discountPercentage; // e.g., 20.0 for 20% off
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -49,34 +49,41 @@ public class FoodItem {
 
     // Constructors
     public FoodItem() {
-        this.price = 0.0; // Default value, will be recalculated
-        this.originalPrice = 0.0; // Default value
-        this.available = false; // Default value
-        this.tags = new HashSet<>(); // Default value
+        this.available = false;
+        this.tags = new HashSet<>();
+        this.discountPercentage = 0.0;
+        this.price = 0.0;
+        this.originalPrice = 0.0;
+        this.imagePath = "";
+        this.preparationTime = "";
     }
 
     public FoodItem(String name, String description, Double price, Double originalPrice, Boolean available, String imagePath,
                     String preparationTime, Set<String> tags, Double discountPercentage, User user) {
         this.name = name;
-        this.description = description;
-        this.originalPrice = originalPrice != null ? originalPrice : 0.0;
+        this.description = description != null ? description : "";
+        this.originalPrice = originalPrice != null && originalPrice > 0 ? originalPrice : 0.0;
         this.available = available != null ? available : false;
         this.imagePath = imagePath != null ? imagePath : "";
         this.preparationTime = preparationTime != null ? preparationTime : "";
-        this.tags = tags != null ? new HashSet<>(tags) : new HashSet<>();
-        this.discountPercentage = discountPercentage != null ? discountPercentage : 0.0;
+        this.tags = tags != null && !tags.isEmpty() ? new HashSet<>(tags) : new HashSet<>();
+        this.discountPercentage = discountPercentage != null && discountPercentage >= 0 && discountPercentage <= 100 ? discountPercentage : 0.0;
         this.user = user;
-        calculatePrice(); // Calculate price based on originalPrice and discountPercentage
+        calculatePrice();
     }
 
     // Method to calculate price
     private void calculatePrice() {
-        if (originalPrice != null && discountPercentage != null) {
-            this.price = originalPrice * (1 - discountPercentage / 100);
-        } else if (price == null || price <= 0) {
-            this.price = originalPrice != null ? originalPrice : 0.0; // Fallback to originalPrice if no discount
+        if (originalPrice != null && originalPrice > 0) {
+            if (discountPercentage != null && discountPercentage >= 0 && discountPercentage <= 100) {
+                this.price = originalPrice * (1 - discountPercentage / 100);
+            } else {
+                this.price = originalPrice; // No discount applied
+            }
+        } else {
+            this.price = 0.0; // Fallback if originalPrice is invalid
         }
-        // Ensure price meets @Positive constraint (handled by validation if invalid)
+        // Validation is handled by @Positive constraint
     }
 
     // Getters and Setters with price recalculation
@@ -109,8 +116,9 @@ public class FoodItem {
     }
 
     public void setPrice(Double price) {
-        this.price = price != null && price > 0 ? price : this.price; // Only update if valid
-        // Note: Manual price setting overrides calculation
+        if (price != null && price > 0) {
+            this.price = price; // Manual override
+        }
     }
 
     public Double getOriginalPrice() {
@@ -118,8 +126,10 @@ public class FoodItem {
     }
 
     public void setOriginalPrice(Double originalPrice) {
-        this.originalPrice = originalPrice != null && originalPrice > 0 ? originalPrice : this.originalPrice;
-        calculatePrice(); // Recalculate price when originalPrice changes
+        if (originalPrice != null && originalPrice > 0) {
+            this.originalPrice = originalPrice;
+            calculatePrice();
+        }
     }
 
     public Boolean getAvailable() {
@@ -147,11 +157,11 @@ public class FoodItem {
     }
 
     public Set<String> getTags() {
-        return tags;
+        return tags != null ? tags : new HashSet<>();
     }
 
     public void setTags(Set<String> tags) {
-        this.tags = tags != null ? new HashSet<>(tags) : new HashSet<>();
+        this.tags = tags != null && !tags.isEmpty() ? new HashSet<>(tags) : new HashSet<>();
     }
 
     public Double getDiscountPercentage() {
@@ -159,8 +169,10 @@ public class FoodItem {
     }
 
     public void setDiscountPercentage(Double discountPercentage) {
-        this.discountPercentage = discountPercentage != null && discountPercentage >= 0 && discountPercentage <= 100 ? discountPercentage : this.discountPercentage;
-        calculatePrice(); // Recalculate price when discountPercentage changes
+        if (discountPercentage != null && discountPercentage >= 0 && discountPercentage <= 100) {
+            this.discountPercentage = discountPercentage;
+            calculatePrice();
+        }
     }
 
     public User getUser() {
@@ -169,5 +181,22 @@ public class FoodItem {
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    @Override
+    public String toString() {
+        return "FoodItem{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", description='" + description + '\'' +
+                ", price=" + price +
+                ", originalPrice=" + originalPrice +
+                ", available=" + available +
+                ", imagePath='" + imagePath + '\'' +
+                ", preparationTime='" + preparationTime + '\'' +
+                ", tags=" + tags +
+                ", discountPercentage=" + discountPercentage +
+                ", user=" + (user != null ? user.getId() : null) +
+                '}';
     }
 }

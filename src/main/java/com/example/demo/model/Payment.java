@@ -1,6 +1,8 @@
 package com.example.demo.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import java.time.LocalDateTime;
 
 @Entity
@@ -12,26 +14,41 @@ public class Payment {
 
     @OneToOne
     @JoinColumn(name = "order_id", nullable = false, unique = true)
+    @NotNull(message = "Order cannot be null")
     private Order order;
 
     @Column(nullable = false)
-    private Double amount; // Changed from BigDecimal to Double
+    @NotNull(message = "Amount cannot be null")
+    @Positive(message = "Amount must be positive")
+    private Double amount;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
+    @NotNull(message = "Payment status cannot be null")
     private PaymentStatus status;
 
     @Column(name = "payment_method", nullable = false)
+    @NotNull(message = "Payment method cannot be null")
     private String paymentMethod;
 
     @Column(name = "transaction_id")
     private String transactionId;
 
-    @Column(name = "payment_date")
+    @Column(name = "payment_date", nullable = false)
+    @NotNull(message = "Payment date cannot be null")
     private LocalDateTime paymentDate;
 
+    @Column(name = "esewa_ref_id")
+    private String esewaRefId;
+
+    @Column(name = "failure_reason")
+    private String failureReason;
+
     // Constructors
-    public Payment() {}
+    public Payment() {
+        this.paymentDate = LocalDateTime.now();
+        this.status = PaymentStatus.PENDING;
+    }
 
     public Payment(Order order, Double amount, String paymentMethod) {
         this.order = order;
@@ -56,10 +73,14 @@ public class Payment {
     public void setTransactionId(String transactionId) { this.transactionId = transactionId; }
     public LocalDateTime getPaymentDate() { return paymentDate; }
     public void setPaymentDate(LocalDateTime paymentDate) { this.paymentDate = paymentDate; }
+    public String getEsewaRefId() { return esewaRefId; }
+    public void setEsewaRefId(String esewaRefId) { this.esewaRefId = esewaRefId; }
+    public String getFailureReason() { return failureReason; }
+    public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
 
     @Override
     public String toString() {
-        return "Payment{id=" + id + ", orderId=" + order.getId() + ", amount=" + amount +
-                ", status=" + status + ", paymentMethod=" + paymentMethod + ", transactionId=" + transactionId + "}";
+        return String.format("Payment{id=%d, orderId=%d, amount=%.2f, status=%s, paymentMethod=%s, transactionId=%s, esewaRefId=%s, failureReason=%s}",
+                id, order.getId(), amount, status, paymentMethod, transactionId, esewaRefId, failureReason);
     }
 }
