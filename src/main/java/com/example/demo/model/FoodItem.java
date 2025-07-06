@@ -83,7 +83,6 @@ public class FoodItem {
         } else {
             this.price = 0.0; // Fallback if originalPrice is invalid
         }
-        // Validation is handled by @Positive constraint
     }
 
     // Getters and Setters with price recalculation

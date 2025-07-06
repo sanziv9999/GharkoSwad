@@ -33,7 +33,6 @@ public interface FoodItemRepository extends JpaRepository<FoodItem, Long> {
     @Query("SELECT f FROM FoodItem f WHERE f.discountPercentage IS NOT NULL ORDER BY f.discountPercentage DESC")
     List<FoodItem> findAllByOrderByDiscountPercentageDesc();
 
-    // New method to find food items by userId
     @Query("SELECT f FROM FoodItem f WHERE f.user.id = :userId AND (:available IS NULL OR f.available = :available) " +
            "AND (:name IS NULL OR LOWER(f.name) LIKE LOWER(CONCAT(:name, '%'))) " +
            "AND (:minPrice IS NULL OR f.price >= :minPrice) " +

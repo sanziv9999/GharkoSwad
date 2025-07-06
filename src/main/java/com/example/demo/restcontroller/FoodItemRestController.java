@@ -56,7 +56,6 @@ public class FoodItemRestController {
             @RequestParam(required = false) String preparationTime) {
         Map<String, Object> response = new HashMap<>();
         try {
-            // Handle tags parameter
             Set<String> tagsSet = null;
             if (tags != null && !tags.trim().isEmpty()) {
                 tagsSet = Arrays.stream(tags.split(","))
@@ -65,7 +64,6 @@ public class FoodItemRestController {
                         .collect(Collectors.toCollection(HashSet::new));
             }
 
-            // Fetch foods
             List<FoodItem> foods = foodItemService.searchFoods(true, name, minPrice, maxPrice, tagsSet, preparationTime);
 
             if (foods.isEmpty()) {
@@ -75,7 +73,6 @@ public class FoodItemRestController {
                 return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
             }
 
-            // Map FoodItem to FoodItemDto with userId
             List<FoodItemDto> foodDtos = foods.stream()
                     .map(food -> {
                         FoodItemDto dto = new FoodItemDto();
@@ -103,7 +100,7 @@ public class FoodItemRestController {
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false) String tags, // Accept as string for comma-separated values
+            @RequestParam(required = false) String tags,
             @RequestParam(required = false) String preparationTime) {
         Map<String, Object> response = new HashMap<>();
         try {
@@ -120,12 +117,21 @@ public class FoodItemRestController {
             if (foods.isEmpty()) {
                 response.put("status", "success");
                 response.put("message", "No food items found for this user");
-                response.put("data", foods);
+                response.put("data", new ArrayList<>());
                 return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
             }
+
+            List<FoodItemDto> foodDtos = foods.stream()
+                    .map(food -> {
+                        FoodItemDto dto = new FoodItemDto();
+                        mapFoodToDto(food, dto);
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
             response.put("status", "success");
             response.put("message", "Food items retrieved successfully");
-            response.put("data", foods);
+            response.put("data", foodDtos);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error fetching food items for user id {}: {}", userId, e.getMessage());
@@ -143,11 +149,10 @@ public class FoodItemRestController {
             @RequestParam(value = "originalPrice", required = false) String originalPrice,
             @RequestParam(value = "available") String available,
             @RequestParam(value = "preparationTime", required = false) String preparationTime,
-            @RequestParam(value = "tags", required = false) String tags, // Accept as string
+            @RequestParam(value = "tags", required = false) String tags,
             @RequestParam(value = "discountPercentage", required = false) String discountPercentage,
             @RequestPart(value = "image", required = false) MultipartFile image,
             @RequestParam(value = "userId") Long userId) {
-
         Map<String, Object> response = new HashMap<>();
         logger.info("Received add food request: name={}, description={}, price={}, originalPrice={}, available={}, " +
                 "preparationTime={}, tags={}, discountPercentage={}, image={}, userId={}",
@@ -235,11 +240,10 @@ public class FoodItemRestController {
             @RequestParam(value = "originalPrice", required = false) String originalPrice,
             @RequestParam(value = "available", required = false) String available,
             @RequestParam(value = "preparationTime", required = false) String preparationTime,
-            @RequestParam(value = "tags", required = false) String tags, // Accept as string
+            @RequestParam(value = "tags", required = false) String tags,
             @RequestParam(value = "discountPercentage", required = false) String discountPercentage,
             @RequestPart(value = "image", required = false) MultipartFile image,
             @RequestParam(value = "userId", required = false) Long userId) {
-
         Map<String, Object> response = new HashMap<>();
         logger.info("Received update food request for id {}: name={}, description={}, price={}, originalPrice={}, available={}, " +
                 "preparationTime={}, tags={}, discountPercentage={}, image={}, userId={}",
@@ -376,7 +380,7 @@ public class FoodItemRestController {
             @RequestParam(required = false) String startsWith,
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false) String tags, // Accept as string
+            @RequestParam(required = false) String tags,
             @RequestParam(required = false) String preparationTime) {
         Map<String, Object> response = new HashMap<>();
         logger.info("Received search request: available={}, startsWith={}, minPrice={}, maxPrice={}, tags={}, preparationTime={}",
@@ -393,12 +397,21 @@ public class FoodItemRestController {
             if (foods.isEmpty()) {
                 response.put("status", "success");
                 response.put("message", "No food items found");
-                response.put("data", foods);
+                response.put("data", new ArrayList<>());
                 return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
             }
+
+            List<FoodItemDto> foodDtos = foods.stream()
+                    .map(food -> {
+                        FoodItemDto dto = new FoodItemDto();
+                        mapFoodToDto(food, dto);
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
             response.put("status", "success");
             response.put("message", "Food items retrieved successfully");
-            response.put("data", foods);
+            response.put("data", foodDtos);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error searching food items: {}", e.getMessage());
@@ -417,12 +430,21 @@ public class FoodItemRestController {
             if (foods.isEmpty()) {
                 response.put("status", "success");
                 response.put("message", "No food items found with tag: " + tag);
-                response.put("data", foods);
+                response.put("data", new ArrayList<>());
                 return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
             }
+
+            List<FoodItemDto> foodDtos = foods.stream()
+                    .map(food -> {
+                        FoodItemDto dto = new FoodItemDto();
+                        mapFoodToDto(food, dto);
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
             response.put("status", "success");
             response.put("message", "Food items retrieved successfully");
-            response.put("data", foods);
+            response.put("data", foodDtos);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error fetching food items by tag: {}", e.getMessage());
@@ -440,12 +462,21 @@ public class FoodItemRestController {
             if (foods.isEmpty()) {
                 response.put("status", "success");
                 response.put("message", "No food items found");
-                response.put("data", foods);
+                response.put("data", new ArrayList<>());
                 return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
             }
+
+            List<FoodItemDto> foodDtos = foods.stream()
+                    .map(food -> {
+                        FoodItemDto dto = new FoodItemDto();
+                        mapFoodToDto(food, dto);
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
             response.put("status", "success");
             response.put("message", "Food items retrieved successfully");
-            response.put("data", foods);
+            response.put("data", foodDtos);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error sorting food items by price: {}", e.getMessage());
@@ -463,12 +494,21 @@ public class FoodItemRestController {
             if (foods.isEmpty()) {
                 response.put("status", "success");
                 response.put("message", "No food items found");
-                response.put("data", foods);
+                response.put("data", new ArrayList<>());
                 return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
             }
+
+            List<FoodItemDto> foodDtos = foods.stream()
+                    .map(food -> {
+                        FoodItemDto dto = new FoodItemDto();
+                        mapFoodToDto(food, dto);
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
             response.put("status", "success");
             response.put("message", "Food items retrieved successfully");
-            response.put("data", foods);
+            response.put("data", foodDtos);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error sorting food items by discount: {}", e.getMessage());
@@ -528,6 +568,7 @@ public class FoodItemRestController {
     }
 
     private void mapFoodToDto(FoodItem food, FoodItemDto dto) {
+        dto.setId(food.getId()); // Ensure id is mapped
         dto.setName(food.getName() != null ? food.getName() : "");
         dto.setDescription(food.getDescription() != null ? food.getDescription() : "");
         dto.setPrice(food.getPrice());
@@ -537,7 +578,6 @@ public class FoodItemRestController {
         dto.setPreparationTime(food.getPreparationTime() != null ? food.getPreparationTime() : "");
         dto.setTags(food.getTags() != null ? new HashSet<>(food.getTags()) : new HashSet<>());
         dto.setDiscountPercentage(food.getDiscountPercentage());
-        // Add userId from the associated User
         if (food.getUser() != null) {
             dto.setUserId(food.getUser().getId());
         }

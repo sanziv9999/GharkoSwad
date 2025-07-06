@@ -6,6 +6,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class FoodItemDto {
+    private Long id; // Matches FoodItem.id
+
     @NotNull(message = "Name is required")
     @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
     private String name;
@@ -46,8 +48,9 @@ public class FoodItemDto {
     }
 
     // All-args constructor
-    public FoodItemDto(String name, String description, Double price, Double originalPrice, Boolean available,
+    public FoodItemDto(Long id, String name, String description, Double price, Double originalPrice, Boolean available,
                        String imagePath, String preparationTime, Set<String> tags, Double discountPercentage, Long userId) {
+        this.id = id;
         this.name = name;
         this.description = description != null ? description : "";
         this.price = price; // Can be null if calculated
@@ -61,6 +64,14 @@ public class FoodItemDto {
     }
 
     // Getters and setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public String getName() {
         return name;
     }
@@ -144,7 +155,8 @@ public class FoodItemDto {
     @Override
     public String toString() {
         return "FoodItemDto{" +
-                "name='" + name + '\'' +
+                "id=" + id +
+                ", name='" + name + '\'' +
                 ", description='" + description + '\'' +
                 ", price=" + price +
                 ", originalPrice=" + originalPrice +

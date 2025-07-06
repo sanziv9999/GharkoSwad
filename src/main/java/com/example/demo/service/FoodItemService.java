@@ -14,7 +14,7 @@ import java.util.Set;
 @Service
 public class FoodItemService {
 
-	@Autowired
+    @Autowired
     private FoodItemRepository foodItemRepository;
 
     public List<FoodItem> getAvailableFoods(String name, Double minPrice, Double maxPrice) {
