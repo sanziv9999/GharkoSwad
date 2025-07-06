@@ -15,33 +15,32 @@ const Menu = () => {
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { addToCart } = useCart(); // Only using addToCart
+  const { addToCart } = useCart();
   const navigate = useNavigate();
 
-  // Fetch food items from the API
   useEffect(() => {
     const fetchFoods = async () => {
       try {
         setLoading(true);
-        const response = await apiService.getAllFoods(); // Fetch all foods
-        console.log('API Response:', response); // Debug the response structure
-        // Handle the response, expecting data array with fallback
+        const response = await apiService.getAllFoods();
+        console.log('API Response:', response);
         const items = Array.isArray(response?.data?.data)
-          ? response.data.data.map((item, index) => ({
-              ...item,
-              id: item.id || `item-${index}`, // Fallback id
-            }))
-          : Array.isArray(response) // Fallback if response is directly an array
-          ? response.map((item, index) => ({
-              ...item,
-              id: item.id || `item-${index}`,
-            }))
+          ? response.data.data
+          : Array.isArray(response)
+          ? response
           : [];
-        setMenuItems(items);
+        const itemsWithIds = items.map((item) => {
+          if (!item.id) {
+            console.warn('Item missing id:', item);
+          } else {
+            console.log('Fetched food item ID:', item.id);
+          }
+          return item;
+        });
+        setMenuItems(itemsWithIds);
         setError(null);
       } catch (err) {
         setError(err.message || 'Failed to fetch menu items');
-        console.error('Error fetching menu items:', err);
       } finally {
         setLoading(false);
       }
@@ -65,6 +64,24 @@ const Menu = () => {
     return matchesCategory && matchesSearch;
   });
 
+  const handleAddToCart = async (item) => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = user.id;
+      console.log('Adding to cart:', { userId, foodId: item.id, quantity: 1 });
+      if (!userId) {
+        toast.error('Please log in to add items to cart');
+        navigate('/login');
+        return;
+      }
+      await addToCart({ ...item, id: item.id }, 1);
+      toast.success(`${item.name} added to cart!`);
+    } catch (err) {
+      toast.error('Failed to add item to cart');
+      console.error('Error adding to cart:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8 flex items-center justify-center">
@@ -87,7 +104,6 @@ const Menu = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
@@ -102,7 +118,6 @@ const Menu = () => {
           </div>
         </div>
 
-        {/* Search and Filter */}
         <div className="mb-8 space-y-6">
           <Card className="p-6">
             <div className="flex flex-col md:flex-row gap-4">
@@ -123,7 +138,6 @@ const Menu = () => {
             </div>
           </Card>
 
-          {/* Categories */}
           <div className="flex flex-wrap gap-3">
             {categories.map((category) => (
               <button
@@ -142,7 +156,6 @@ const Menu = () => {
           </div>
         </div>
 
-        {/* Menu Items Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredItems.map((item) => (
             <Card key={item.id} className="overflow-hidden group" hover>
@@ -213,7 +226,7 @@ const Menu = () => {
                     <p className="text-sm text-gray-500">{item.reviews || 0} reviews</p>
                   </div>
                   <Button
-                    onClick={() => addToCart(item)}
+                    onClick={() => handleAddToCart(item)}
                     className="flex items-center space-x-2 px-6"
                   >
                     <Plus className="w-4 h-4" />

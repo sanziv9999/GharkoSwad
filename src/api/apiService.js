@@ -196,9 +196,20 @@ export const apiService = {
   // Add item to cart
   async addToCart(userId, foodId, quantity = 1, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
-    const endpoint = `/cart?userId=${userId}&foodId=${foodId}&quantity=${quantity}`;
+    // Convert and validate foodId and userId
+    const parsedFoodId = parseInt(foodId, 10);
+    if (isNaN(parsedFoodId)) {
+      throw new Error('Invalid foodId: must be a valid number');
+    }
+    const parsedUserId = parseInt(userId, 10);
+    if (isNaN(parsedUserId)) {
+      throw new Error('Invalid userId: must be a valid number');
+    }
+    const endpoint = `/cart?userId=${parsedUserId}&foodId=${parsedFoodId}&quantity=${quantity}`;
     console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
-    return this.post(endpoint, {}, tokenFromStorage);
+    const response = await this.post(endpoint, {}, tokenFromStorage); // Empty body, params in URL
+    console.log('Add to cart response:', response);
+    return response;
   },
 
   // Get cart items for a user
@@ -213,23 +224,47 @@ export const apiService = {
   // Increase quantity of an item in cart
   async increaseCartQuantity(userId, foodId, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
-    const endpoint = `/cart/increase/${foodId}?userId=${userId}`;
+    const parsedFoodId = parseInt(foodId, 10);
+    if (isNaN(parsedFoodId)) {
+      throw new Error('Invalid foodId: must be a valid number');
+    }
+    const parsedUserId = parseInt(userId, 10);
+    if (isNaN(parsedUserId)) {
+      throw new Error('Invalid userId: must be a valid number');
+    }
+    const endpoint = `/cart/increase/${parsedFoodId}?userId=${parsedUserId}`;
     console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
-    return this.post(endpoint, {}, tokenFromStorage);
+    return this.put(endpoint, {}, tokenFromStorage); // Using PUT for update
   },
 
   // Decrease quantity of an item in cart
   async decreaseCartQuantity(userId, foodId, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
-    const endpoint = `/cart/decrease/${foodId}?userId=${userId}`;
+    const parsedFoodId = parseInt(foodId, 10);
+    if (isNaN(parsedFoodId)) {
+      throw new Error('Invalid foodId: must be a valid number');
+    }
+    const parsedUserId = parseInt(userId, 10);
+    if (isNaN(parsedUserId)) {
+      throw new Error('Invalid userId: must be a valid number');
+    }
+    const endpoint = `/cart/decrease/${parsedFoodId}?userId=${parsedUserId}`;
     console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
-    return this.post(endpoint, {}, tokenFromStorage);
+    return this.put(endpoint, {}, tokenFromStorage); // Using PUT for update
   },
 
   // Delete an item from cart
   async deleteCartItem(userId, foodId, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
-    const endpoint = `/cart/${foodId}?userId=${userId}`;
+    const parsedFoodId = parseInt(foodId, 10);
+    if (isNaN(parsedFoodId)) {
+      throw new Error('Invalid foodId: must be a valid number');
+    }
+    const parsedUserId = parseInt(userId, 10);
+    if (isNaN(parsedUserId)) {
+      throw new Error('Invalid userId: must be a valid number');
+    }
+    const endpoint = `/cart/${parsedFoodId}?userId=${parsedUserId}`;
     console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
     return this.delete(endpoint, tokenFromStorage);
   },
@@ -240,5 +275,20 @@ export const apiService = {
     const endpoint = `/cart?userId=${userId}`;
     console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
     return this.delete(endpoint, tokenFromStorage);
+  },
+
+  // Add PUT method to apiService
+  async put(endpoint, data, token = null) {
+    console.log(`PUT request: ${endpoint}`, data);
+    const headers = {
+      ...API_CONFIG.HEADERS,
+      ...(token && { Authorization: `Bearer ${token}` }),
+    };
+    const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
   },
 };

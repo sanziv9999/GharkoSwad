@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { X, Plus, Minus, ShoppingBag, Trash2, ArrowRight, Loader2 } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useNavigate } from 'react-router-dom';
@@ -79,43 +79,24 @@ const CartSidebar = () => {
                 {error}
               </div>
             )}
-            {!loading && cartItems.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <ShoppingBag className="w-12 h-12 text-gray-300" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Your cart is empty</h3>
-                <p className="text-gray-600 mb-4">Add some delicious items to get started!</p>
-                <Button 
-                  onClick={() => {
-                    setIsCartOpen(false);
-                    navigate('/menu');
-                  }}
-                  className="flex items-center space-x-2"
-                  aria-label="Browse menu"
-                >
-                  <span>Browse Menu</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </div>
-            ) : (
+            {!loading && cartItems.length > 0 && (
               <div className="space-y-4">
                 {cartItems.map((item) => (
                   <Card key={item.id} className="p-4 hover:shadow-md transition-shadow duration-200">
                     <div className="flex items-start space-x-4">
                       <img
-                        src={imagePathService.getImageUrl(item.imagePath || item.image)} // Match Menu's logic
-                        alt={item.name}
+                        src={item.imageUrl || '/placeholder-image.jpg'}
+                        alt={item.name || 'Unknown Item'}
                         className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                        onError={(e) => { e.target.src = '/placeholder-image.jpg'; }} // Fallback image
+                        onError={(e) => { e.target.src = '/placeholder-image.jpg'; }}
                       />
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 truncate">{item.name}</h3>
-                        <p className="text-sm text-gray-600 mb-1">{item.chef}</p>
+                        <h3 className="font-semibold text-gray-900 truncate">{item.name || 'Unknown Item'}</h3>
+                        <p className="text-sm text-gray-600 mb-1">{item.chef || 'Unknown Chef'}</p>
                         <div className="flex items-center justify-between">
-                          <p className="text-lg font-bold text-primary-600">₹{item.price.toFixed(2)}</p>
+                          <p className="text-lg font-bold text-primary-600">₹{(item.price || 0).toFixed(2)}</p>
                           <button
-                            onClick={() => handleRemoveFromCart(item.id)}
+                            onClick={() => handleRemoveFromCart(item.foodId)}
                             className="p-1 hover:bg-red-100 rounded transition-colors duration-200"
                             aria-label={`Remove ${item.name} from cart`}
                           >
@@ -125,20 +106,19 @@ const CartSidebar = () => {
                       </div>
                     </div>
                     
-                    {/* Quantity Controls */}
                     <div className="flex items-center justify-between mt-4">
                       <div className="flex items-center space-x-3">
                         <button
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                          onClick={() => handleUpdateQuantity(item.foodId, item.quantity - 1)}
                           className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors duration-200 disabled:opacity-50"
                           disabled={item.quantity <= 1 || loading}
                           aria-label="Decrease quantity"
                         >
                           <Minus className="w-4 h-4" />
                         </button>
-                        <span className="w-8 text-center font-semibold text-lg" aria-live="polite">{item.quantity}</span>
+                        <span className="w-8 text-center font-semibold text-lg" aria-live="polite">{item.quantity || 0}</span>
                         <button
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                          onClick={() => handleUpdateQuantity(item.foodId, item.quantity + 1)}
                           className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors duration-200"
                           disabled={loading}
                           aria-label="Increase quantity"
@@ -147,7 +127,7 @@ const CartSidebar = () => {
                         </button>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-gray-900">₹{(item.price * item.quantity).toFixed(2)}</p>
+                        <p className="font-bold text-gray-900">₹{((item.price || 0) * (item.quantity || 0)).toFixed(2)}</p>
                         <p className="text-xs text-gray-500">Total</p>
                       </div>
                     </div>
@@ -155,6 +135,7 @@ const CartSidebar = () => {
                 ))}
               </div>
             )}
+                        
           </div>
 
           {/* Footer */}

@@ -19,128 +19,134 @@ export const CartProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const token = localStorage.getItem('token');
 
-  // Fetch cart items from API on mount
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = user.id;
+
   useEffect(() => {
     const fetchCartItems = async () => {
+      if (!userId) return;
       setLoading(true);
       setError(null);
       try {
-        const userId = localStorage.getItem('userId'); // Assume userId is stored after login
-        if (!userId) throw new Error('User not authenticated');
         const result = await apiService.getCartItems(userId, token);
         setCartItems(result || []);
       } catch (err) {
         setError(err.message || 'Failed to load cart');
-        console.error('Error fetching cart:', err);
       } finally {
         setLoading(false);
       }
     };
     fetchCartItems();
-  }, [token]);
+  }, [userId, token]);
 
-  // Sync cart with API on changes
-  const syncCartWithAPI = async (newCartItems) => {
+  const syncCartWithAPI = async () => {
+    if (!userId) return;
     setLoading(true);
     setError(null);
     try {
-      const userId = localStorage.getItem('userId');
-      if (!userId) throw new Error('User not authenticated');
-      // For simplicity, we'll just fetch the latest state after each operation
       const result = await apiService.getCartItems(userId, token);
       setCartItems(result || []);
     } catch (err) {
       setError(err.message || 'Failed to sync cart');
-      console.error('Error syncing cart:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const addToCart = async (item, quantity = 1) => {
+    if (!userId) {
+      setError('User not authenticated');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const userId = localStorage.getItem('userId');
-      if (!userId) throw new Error('User not authenticated');
       const itemWithImage = {
         ...item,
         imageUrl: item.imagePath ? imagePathService.getImageUrl(item.imagePath) : 
                   item.image ? imagePathService.getImageUrl(item.image) : null,
         quantity,
       };
-      await apiService.addToCart(userId, item.id, quantity, token);
-      await syncCartWithAPI();
+      console.log('Adding item with foodId:', item.id); // Log the foodId being passed
+      const response = await apiService.addToCart(userId, item.id, quantity, token);
+      if (response.status === 'success') {
+        await syncCartWithAPI();
+      } else {
+        throw new Error(response.message || 'Failed to add item');
+      }
     } catch (err) {
       setError(err.message || 'Failed to add item to cart');
-      console.error('Error adding to cart:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const removeFromCart = async (itemId) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const userId = localStorage.getItem('userId');
-      if (!userId) throw newError('User not authenticated');
-      await apiService.deleteCartItem(userId, itemId, token);
-      await syncCartWithAPI();
-    } catch (err) {
-      setError(err.message || 'Failed to remove item from cart');
-      console.error('Error removing from cart:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateQuantity = async (itemId, quantity) => {
-    if (quantity <= 0) {
-      await removeFromCart(itemId);
+  const removeFromCart = async (foodId) => {
+    if (!userId) {
+      setError('User not authenticated');
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const userId = localStorage.getItem('userId');
-      if (!userId) throw new Error('User not authenticated');
-      if (quantity > cartItems.find(item => item.id === itemId)?.quantity) {
-        await apiService.increaseCartQuantity(userId, itemId, token);
+      await apiService.deleteCartItem(userId, foodId, token);
+      await syncCartWithAPI();
+    } catch (err) {
+      setError(err.message || 'Failed to remove item from cart');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateQuantity = async (foodId, quantity) => {
+    if (!userId) {
+      setError('User not authenticated');
+      return;
+    }
+    if (quantity <= 0) {
+      await removeFromCart(foodId);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const currentItem = cartItems.find(item => item.foodId === foodId);
+      if (quantity > (currentItem?.quantity || 0)) {
+        await apiService.increaseCartQuantity(userId, foodId, token);
       } else {
-        await apiService.decreaseCartQuantity(userId, itemId, token);
+        await apiService.decreaseCartQuantity(userId, foodId, token);
       }
       await syncCartWithAPI();
     } catch (err) {
       setError(err.message || 'Failed to update quantity');
-      console.error('Error updating quantity:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const clearCart = async () => {
+    if (!userId) {
+      setError('User not authenticated');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const userId = localStorage.getItem('userId');
-      if (!userId) throw new Error('User not authenticated');
       await apiService.clearCart(userId, token);
       setCartItems([]);
     } catch (err) {
       setError(err.message || 'Failed to clear cart');
-      console.error('Error clearing cart:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const getTotalItems = () => {
-    return cartItems.reduce((total, item) => total + item.quantity, 0);
+    return cartItems.reduce((total, item) => total + (item.quantity || 0), 0);
   };
 
   const getTotalPrice = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+    return cartItems.reduce((total, item) => total + ((item.price || 0) * (item.quantity || 0)), 0);
   };
 
   const value = {
