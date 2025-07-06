@@ -218,7 +218,7 @@ const Checkout = () => {
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex items-center space-x-3">
                     <img
-                      src={imagePathService.getImageUrl(item.imagePath || item.image)} // Use image service
+                      src={imagePathService.getImageUrl(item.imagePath || item.imageUrl)} // Use image service
                       alt={item.name}
                       className="w-12 h-12 rounded-lg object-cover"
                       onError={(e) => { e.target.src = '/placeholder-image.jpg'; }} // Fallback image

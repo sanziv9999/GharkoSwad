@@ -85,7 +85,7 @@ const CartSidebar = () => {
                   <Card key={item.id} className="p-4 hover:shadow-md transition-shadow duration-200">
                     <div className="flex items-start space-x-4">
                       <img
-                        src={item.imageUrl || '/placeholder-image.jpg'}
+                        src={imagePathService.getImageUrl(item.imagePath || item.imageUrl || '/placeholder-image.jpg')}
                         alt={item.name || 'Unknown Item'}
                         className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
                         onError={(e) => { e.target.src = '/placeholder-image.jpg'; }}
