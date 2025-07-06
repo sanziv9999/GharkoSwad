@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, CreditCard, Clock, Phone, User } from 'lucide-react';
 import { useCart } from '../context/CartContext';
@@ -8,13 +8,14 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
 import Banner from '../components/ui/Banner';
+import imagePathService from '../services/imageLocation/imagePath'; // Import image service
 
 const Checkout = () => {
   const { cartItems, getTotalPrice, clearCart } = useCart();
   const { createOrder } = useOrders();
   const { user } = useAuth();
   const navigate = useNavigate();
-  
+
   const [banner, setBanner] = useState({ show: false, type: '', message: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -24,6 +25,15 @@ const Checkout = () => {
     paymentMethod: 'cash',
     specialInstructions: ''
   });
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!cartItems.length) {
+      setError('Your cart is empty. Please add items before checking out.');
+    } else {
+      setError(null);
+    }
+  }, [cartItems]);
 
   const showBanner = (type, message) => {
     setBanner({ show: true, type, message });
@@ -37,7 +47,7 @@ const Checkout = () => {
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.name || !formData.phone || !formData.address) {
       showBanner('error', 'Please fill in all required fields');
       return;
@@ -49,14 +59,16 @@ const Checkout = () => {
     }
 
     setIsLoading(true);
+    setError(null);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
+      // Simulate API call with a 2-second delay
       const orderData = {
         userId: user?.id || 'guest',
-        items: cartItems,
+        items: cartItems.map(item => ({
+          ...item,
+          image: imagePathService.getImageUrl(item.imagePath || item.image) // Ensure image URL is included
+        })),
         total: getTotalPrice() + 30, // Including delivery fee
         customerInfo: {
           name: formData.name,
@@ -69,7 +81,8 @@ const Checkout = () => {
         deliveryFee: 30
       };
 
-      const order = createOrder(orderData);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const order = await createOrder(orderData); // Assuming createOrder returns an order object
       clearCart();
       
       showBanner('success', 'Order placed successfully!');
@@ -79,6 +92,7 @@ const Checkout = () => {
       }, 2000);
 
     } catch (error) {
+      setError('Failed to place order. Please try again.');
       showBanner('error', 'Failed to place order. Please try again.');
     } finally {
       setIsLoading(false);
@@ -88,6 +102,17 @@ const Checkout = () => {
   const deliveryFee = 30;
   const subtotal = getTotalPrice();
   const total = subtotal + deliveryFee;
+
+  if (error && !cartItems.length) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 flex items-center justify-center">
+        <Card className="p-6 text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={() => navigate('/menu')}>Go to Menu</Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -193,15 +218,16 @@ const Checkout = () => {
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex items-center space-x-3">
                     <img
-                      src={item.image}
+                      src={imagePathService.getImageUrl(item.imagePath || item.image)} // Use image service
                       alt={item.name}
                       className="w-12 h-12 rounded-lg object-cover"
+                      onError={(e) => { e.target.src = '/placeholder-image.jpg'; }} // Fallback image
                     />
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900">{item.name}</h3>
                       <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
                     </div>
-                    <span className="font-semibold text-gray-900">₹{item.price * item.quantity}</span>
+                    <span className="font-semibold text-gray-900">₹{(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -209,7 +235,7 @@ const Checkout = () => {
               <div className="border-t border-gray-200 mt-6 pt-6 space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
-                  <span className="font-semibold">₹{subtotal}</span>
+                  <span className="font-semibold">₹{subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Delivery Fee</span>
@@ -217,7 +243,7 @@ const Checkout = () => {
                 </div>
                 <div className="flex justify-between text-lg font-bold text-gray-900 border-t border-gray-200 pt-3">
                   <span>Total</span>
-                  <span>₹{total}</span>
+                  <span>₹{total.toFixed(2)}</span>
                 </div>
               </div>
             </Card>
@@ -236,7 +262,7 @@ const Checkout = () => {
               className="w-full py-4 text-lg font-semibold"
               disabled={isLoading}
             >
-              {isLoading ? 'Placing Order...' : `Place Order - ₹${total}`}
+              {isLoading ? 'Placing Order...' : `Place Order - ₹${total.toFixed(2)}`}
             </Button>
           </div>
         </div>

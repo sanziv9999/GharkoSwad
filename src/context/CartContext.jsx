@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import imagePathService from '../services/imageLocation/imagePath'; // Import imagePathService
+import { apiService } from '../api/apiService';
+import imagePathService from '../services/imageLocation/imagePath';
 
 const CartContext = createContext(undefined);
 
@@ -14,59 +15,124 @@ export const useCart = () => {
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const token = localStorage.getItem('token');
 
-  // Load cart from localStorage on mount
+  // Fetch cart items from API on mount
   useEffect(() => {
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      setCartItems(JSON.parse(savedCart));
-    }
-  }, []);
-
-  // Save cart to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cartItems));
-  }, [cartItems]);
-
-  const addToCart = (item, quantity = 1) => {
-    setCartItems(prev => {
-      const existingItem = prev.find(cartItem => cartItem.id === item.id);
-      if (existingItem) {
-        return prev.map(cartItem =>
-          cartItem.id === item.id
-            ? { ...cartItem, quantity: cartItem.quantity + quantity }
-            : cartItem
-        );
+    const fetchCartItems = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const userId = localStorage.getItem('userId'); // Assume userId is stored after login
+        if (!userId) throw new Error('User not authenticated');
+        const result = await apiService.getCartItems(userId, token);
+        setCartItems(result || []);
+      } catch (err) {
+        setError(err.message || 'Failed to load cart');
+        console.error('Error fetching cart:', err);
+      } finally {
+        setLoading(false);
       }
-      // Use imagePathService to generate URL, matching <img src={imagePathService.getImageUrl(...)} /> pattern
+    };
+    fetchCartItems();
+  }, [token]);
+
+  // Sync cart with API on changes
+  const syncCartWithAPI = async (newCartItems) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const userId = localStorage.getItem('userId');
+      if (!userId) throw new Error('User not authenticated');
+      // For simplicity, we'll just fetch the latest state after each operation
+      const result = await apiService.getCartItems(userId, token);
+      setCartItems(result || []);
+    } catch (err) {
+      setError(err.message || 'Failed to sync cart');
+      console.error('Error syncing cart:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addToCart = async (item, quantity = 1) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const userId = localStorage.getItem('userId');
+      if (!userId) throw new Error('User not authenticated');
       const itemWithImage = {
         ...item,
         imageUrl: item.imagePath ? imagePathService.getImageUrl(item.imagePath) : 
                   item.image ? imagePathService.getImageUrl(item.image) : null,
-        quantity
+        quantity,
       };
-      return [...prev, itemWithImage];
-    });
+      await apiService.addToCart(userId, item.id, quantity, token);
+      await syncCartWithAPI();
+    } catch (err) {
+      setError(err.message || 'Failed to add item to cart');
+      console.error('Error adding to cart:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const removeFromCart = (itemId) => {
-    setCartItems(prev => prev.filter(item => item.id !== itemId));
+  const removeFromCart = async (itemId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const userId = localStorage.getItem('userId');
+      if (!userId) throw newError('User not authenticated');
+      await apiService.deleteCartItem(userId, itemId, token);
+      await syncCartWithAPI();
+    } catch (err) {
+      setError(err.message || 'Failed to remove item from cart');
+      console.error('Error removing from cart:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateQuantity = (itemId, quantity) => {
+  const updateQuantity = async (itemId, quantity) => {
     if (quantity <= 0) {
-      removeFromCart(itemId);
+      await removeFromCart(itemId);
       return;
     }
-    setCartItems(prev =>
-      prev.map(item =>
-        item.id === itemId ? { ...item, quantity } : item
-      )
-    );
+    setLoading(true);
+    setError(null);
+    try {
+      const userId = localStorage.getItem('userId');
+      if (!userId) throw new Error('User not authenticated');
+      if (quantity > cartItems.find(item => item.id === itemId)?.quantity) {
+        await apiService.increaseCartQuantity(userId, itemId, token);
+      } else {
+        await apiService.decreaseCartQuantity(userId, itemId, token);
+      }
+      await syncCartWithAPI();
+    } catch (err) {
+      setError(err.message || 'Failed to update quantity');
+      console.error('Error updating quantity:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const clearCart = () => {
-    setCartItems([]);
+  const clearCart = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const userId = localStorage.getItem('userId');
+      if (!userId) throw new Error('User not authenticated');
+      await apiService.clearCart(userId, token);
+      setCartItems([]);
+    } catch (err) {
+      setError(err.message || 'Failed to clear cart');
+      console.error('Error clearing cart:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getTotalItems = () => {
@@ -86,7 +152,9 @@ export const CartProvider = ({ children }) => {
     getTotalItems,
     getTotalPrice,
     isCartOpen,
-    setIsCartOpen
+    setIsCartOpen,
+    loading,
+    error,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

@@ -21,13 +21,10 @@ const handleResponse = async (response) => {
   if (contentType && contentType.includes('application/json')) {
     const result = await response.json();
     console.log('API response:', result);
-    if (Array.isArray(result)) {
-      return { status: 'success', data: result }; // Wrap array in a success object
-    }
     if (result.status !== 'success') {
       throw new Error(result.message || 'Operation failed');
     }
-    return result;
+    return result; // Return the full response object { status, message, data }
   }
 
   const text = await response.text();
@@ -160,35 +157,88 @@ export const apiService = {
     return handleResponse(response);
   },
 
+  // Fetch foods by user ID
   async getFoodsById(id, params = {}, token = null) {
     const queryString = new URLSearchParams({ userId: id, ...params }).toString();
     const endpoint = `/food/list/by-user${queryString ? `?${queryString}` : ''}`;
     const tokenFromStorage = localStorage.getItem('token');
     console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
     const result = await this.get(endpoint, tokenFromStorage);
-    return Array.isArray(result.data) ? result.data : [result.data]; // Adjust based on API response
+    return result.data; // Return the data array directly
   },
 
+  // Add food item
   async addFood(formData, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     return this.postMultipart('/food/add', formData, tokenFromStorage);
   },
 
+  // Update food item
   async updateFood(id, formData, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     return this.patchMultipart(`/food/update/${id}`, formData, tokenFromStorage);
   },
 
+  // Delete food item
   async deleteFood(id, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     return this.delete(`/food/delete/${id}`, tokenFromStorage);
   },
 
-  // New method to fetch all food items
+  // Fetch all food items
   async getAllFoods(token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     console.log(`Requesting: ${API_CONFIG.BASE_URL}/food/list with token: ${tokenFromStorage}`);
     const result = await this.get('/food/list', tokenFromStorage);
-    return Array.isArray(result.data) ? result.data : [result.data]; // Ensure data is an array
+    return result.data; // Return the data array directly
+  },
+
+  // Add item to cart
+  async addToCart(userId, foodId, quantity = 1, token = null) {
+    const tokenFromStorage = localStorage.getItem('token');
+    const endpoint = `/cart?userId=${userId}&foodId=${foodId}&quantity=${quantity}`;
+    console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
+    return this.post(endpoint, {}, tokenFromStorage);
+  },
+
+  // Get cart items for a user
+  async getCartItems(userId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token');
+    const endpoint = `/cart?userId=${userId}`;
+    console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
+    const result = await this.get(endpoint, tokenFromStorage);
+    return result.data; // Return the data array directly
+  },
+
+  // Increase quantity of an item in cart
+  async increaseCartQuantity(userId, foodId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token');
+    const endpoint = `/cart/increase/${foodId}?userId=${userId}`;
+    console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
+    return this.post(endpoint, {}, tokenFromStorage);
+  },
+
+  // Decrease quantity of an item in cart
+  async decreaseCartQuantity(userId, foodId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token');
+    const endpoint = `/cart/decrease/${foodId}?userId=${userId}`;
+    console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
+    return this.post(endpoint, {}, tokenFromStorage);
+  },
+
+  // Delete an item from cart
+  async deleteCartItem(userId, foodId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token');
+    const endpoint = `/cart/${foodId}?userId=${userId}`;
+    console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
+    return this.delete(endpoint, tokenFromStorage);
+  },
+
+  // Clear all items from cart
+  async clearCart(userId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token');
+    const endpoint = `/cart?userId=${userId}`;
+    console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
+    return this.delete(endpoint, tokenFromStorage);
   },
 };
