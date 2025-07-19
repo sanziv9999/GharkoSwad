@@ -6,7 +6,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class FoodItemDto {
-    private Long id; // Matches FoodItem.id
+    private Long id;
 
     @NotNull(message = "Name is required")
     @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
@@ -14,7 +14,6 @@ public class FoodItemDto {
 
     private String description;
 
-    // Price is optional and can be calculated from originalPrice and discountPercentage
     private Double price;
 
     @NotNull(message = "Original price is required")
@@ -35,8 +34,9 @@ public class FoodItemDto {
     @DecimalMax(value = "100.0", message = "Discount percentage must not exceed 100")
     private Double discountPercentage;
 
-    // New field for userId to represent the User association
     private Long userId;
+
+    private UserDto user; // Added UserDto field
 
     // No-args constructor with default values
     public FoodItemDto() {
@@ -49,108 +49,46 @@ public class FoodItemDto {
 
     // All-args constructor
     public FoodItemDto(Long id, String name, String description, Double price, Double originalPrice, Boolean available,
-                       String imagePath, String preparationTime, Set<String> tags, Double discountPercentage, Long userId) {
+                       String imagePath, String preparationTime, Set<String> tags, Double discountPercentage, Long userId, UserDto user) {
         this.id = id;
         this.name = name;
         this.description = description != null ? description : "";
-        this.price = price; // Can be null if calculated
-        this.originalPrice = originalPrice != null && originalPrice > 0 ? originalPrice : null; // Enforce @NotNull via validation
+        this.price = price;
+        this.originalPrice = originalPrice != null && originalPrice > 0 ? originalPrice : null;
         this.available = available != null ? available : false;
         this.imagePath = imagePath != null ? imagePath : "";
         this.preparationTime = preparationTime != null ? preparationTime : "";
         this.tags = tags != null && !tags.isEmpty() ? new HashSet<>(tags) : new HashSet<>();
         this.discountPercentage = discountPercentage != null && discountPercentage >= 0 && discountPercentage <= 100 ? discountPercentage : 0.0;
         this.userId = userId;
+        this.user = user;
     }
 
     // Getters and setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description != null ? description : "";
-    }
-
-    public Double getPrice() {
-        return price;
-    }
-
-    public void setPrice(Double price) {
-        this.price = price; // No validation, calculated if null
-    }
-
-    public Double getOriginalPrice() {
-        return originalPrice;
-    }
-
-    public void setOriginalPrice(Double originalPrice) {
-        this.originalPrice = originalPrice != null && originalPrice > 0 ? originalPrice : null; // Enforce @NotNull via validation
-    }
-
-    public Boolean getAvailable() {
-        return available;
-    }
-
-    public void setAvailable(Boolean available) {
-        this.available = available != null ? available : false;
-    }
-
-    public String getImagePath() {
-        return imagePath;
-    }
-
-    public void setImagePath(String imagePath) {
-        this.imagePath = imagePath != null ? imagePath : "";
-    }
-
-    public String getPreparationTime() {
-        return preparationTime;
-    }
-
-    public void setPreparationTime(String preparationTime) {
-        this.preparationTime = preparationTime != null ? preparationTime : "";
-    }
-
-    public Set<String> getTags() {
-        return tags != null ? new HashSet<>(tags) : new HashSet<>(); // Defensive copy
-    }
-
-    public void setTags(Set<String> tags) {
-        this.tags = tags != null && !tags.isEmpty() ? new HashSet<>(tags) : new HashSet<>();
-    }
-
-    public Double getDiscountPercentage() {
-        return discountPercentage;
-    }
-
-    public void setDiscountPercentage(Double discountPercentage) {
-        this.discountPercentage = discountPercentage != null && discountPercentage >= 0 && discountPercentage <= 100 ? discountPercentage : 0.0;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description != null ? description : ""; }
+    public Double getPrice() { return price; }
+    public void setPrice(Double price) { this.price = price; }
+    public Double getOriginalPrice() { return originalPrice; }
+    public void setOriginalPrice(Double originalPrice) { this.originalPrice = originalPrice != null && originalPrice > 0 ? originalPrice : null; }
+    public Boolean getAvailable() { return available; }
+    public void setAvailable(Boolean available) { this.available = available != null ? available : false; }
+    public String getImagePath() { return imagePath; }
+    public void setImagePath(String imagePath) { this.imagePath = imagePath != null ? imagePath : ""; }
+    public String getPreparationTime() { return preparationTime; }
+    public void setPreparationTime(String preparationTime) { this.preparationTime = preparationTime != null ? preparationTime : ""; }
+    public Set<String> getTags() { return tags != null ? new HashSet<>(tags) : new HashSet<>(); }
+    public void setTags(Set<String> tags) { this.tags = tags != null && !tags.isEmpty() ? new HashSet<>(tags) : new HashSet<>(); }
+    public Double getDiscountPercentage() { return discountPercentage; }
+    public void setDiscountPercentage(Double discountPercentage) { this.discountPercentage = discountPercentage != null && discountPercentage >= 0 && discountPercentage <= 100 ? discountPercentage : 0.0; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    public UserDto getUser() { return user; }
+    public void setUser(UserDto user) { this.user = user; }
 
     @Override
     public String toString() {
@@ -166,6 +104,7 @@ public class FoodItemDto {
                 ", tags=" + tags +
                 ", discountPercentage=" + discountPercentage +
                 ", userId=" + userId +
+                ", user=" + user +
                 '}';
     }
 }

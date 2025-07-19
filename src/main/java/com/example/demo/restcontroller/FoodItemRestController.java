@@ -1,6 +1,7 @@
 package com.example.demo.restcontroller;
 
 import com.example.demo.dto.FoodItemDto;
+import com.example.demo.dto.UserDto;
 import com.example.demo.model.FoodItem;
 import com.example.demo.model.User;
 import com.example.demo.service.FoodItemService;
@@ -52,7 +53,7 @@ public class FoodItemRestController {
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false) String tags, // Accept as string for comma-separated values
+            @RequestParam(required = false) String tags,
             @RequestParam(required = false) String preparationTime) {
         Map<String, Object> response = new HashMap<>();
         try {
@@ -364,7 +365,7 @@ public class FoodItemRestController {
             logger.info("Food item with id {} deleted", id);
             response.put("status", "success");
             response.put("message", "Food item deleted successfully");
-            response.put("data", null); // No data needed for delete
+            response.put("data", null);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error deleting food item: {}", e.getMessage(), e);
@@ -568,18 +569,25 @@ public class FoodItemRestController {
     }
 
     private void mapFoodToDto(FoodItem food, FoodItemDto dto) {
-        dto.setId(food.getId()); // Ensure id is mapped
+        dto.setId(food.getId());
         dto.setName(food.getName() != null ? food.getName() : "");
         dto.setDescription(food.getDescription() != null ? food.getDescription() : "");
         dto.setPrice(food.getPrice());
         dto.setOriginalPrice(food.getOriginalPrice());
-        dto.setAvailable(food.getAvailable());
+        dto.setAvailable(food.getAvailable() != null ? food.getAvailable() : false);
         dto.setImagePath(food.getImagePath() != null ? food.getImagePath() : "");
         dto.setPreparationTime(food.getPreparationTime() != null ? food.getPreparationTime() : "");
         dto.setTags(food.getTags() != null ? new HashSet<>(food.getTags()) : new HashSet<>());
-        dto.setDiscountPercentage(food.getDiscountPercentage());
+        dto.setDiscountPercentage(food.getDiscountPercentage() != null ? food.getDiscountPercentage() : 0.0);
         if (food.getUser() != null) {
             dto.setUserId(food.getUser().getId());
+            UserDto userDto = new UserDto();
+            userDto.setEmail(food.getUser().getEmail());
+            userDto.setUsername(food.getUser().getUsername());
+            userDto.setLocation(food.getUser().getLocation());
+            userDto.setPhoneNumber(food.getUser().getPhoneNumber());
+            // Note: Password is not mapped for security reasons
+            dto.setUser(userDto);
         }
     }
 }

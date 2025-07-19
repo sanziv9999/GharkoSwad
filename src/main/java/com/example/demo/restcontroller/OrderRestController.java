@@ -1,13 +1,19 @@
-
 package com.example.demo.restcontroller;
 
-import com.example.demo.dto.CancelOrderRequest;
+import com.example.demo.dto.CancelOrderItemsRequest;
+
+import com.example.demo.dto.FoodItemDto;
+import com.example.demo.dto.OrderItemResponse;
 import com.example.demo.dto.OrderResponse;
 import com.example.demo.dto.PlaceOrderRequest;
+import com.example.demo.dto.UserDto;
 import com.example.demo.dto.VerifyEsewaRequest;
+import com.example.demo.model.FoodItem;
 import com.example.demo.model.Order;
+import com.example.demo.model.OrderItem;
 import com.example.demo.model.Payment;
 import com.example.demo.model.PaymentStatus;
+import com.example.demo.service.FoodItemService;
 import com.example.demo.service.OrderService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,6 +37,9 @@ public class OrderRestController {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private FoodItemService foodItemService;
 
     @PostMapping("/place")
     public ResponseEntity<Map<String, Object>> placeOrder(@RequestBody PlaceOrderRequest request) {
@@ -83,35 +93,35 @@ public class OrderRestController {
         }
     }
 
-    @PutMapping("/cancel")
-    public ResponseEntity<Map<String, Object>> cancelOrder(@RequestBody CancelOrderRequest request) {
-        logger.info("Received cancel order request: foodOrderId={}, userId={}",
-                request.getFoodOrderId(), request.getUserId());
+   
+    @PutMapping("/cancel-items")
+    public ResponseEntity<Map<String, Object>> cancelOrderItems(@RequestBody CancelOrderItemsRequest request) {
+        logger.info("Received cancel order items request: userId={}, foodOrderItemIds={}",
+                request.getUserId(), request.getFoodOrderItemIds());
         try {
-            if (request.getFoodOrderId() == null || request.getUserId() == null) {
-                throw new IllegalArgumentException("foodOrderId and userId are required");
+            if (request.getUserId() == null || request.getFoodOrderItemIds() == null || request.getFoodOrderItemIds().isEmpty()) {
+                throw new IllegalArgumentException("userId and foodOrderItemIds are required and cannot be empty");
             }
-            Order order = orderService.cancelOrder(request.getFoodOrderId(), request.getUserId());
-            OrderResponse response = new OrderResponse(order);
-            logger.debug("Order cancelled successfully: {}", response);
+            List<Long> cancelledOrderItemIds = orderService.cancelOrderItems(request.getUserId(), request.getFoodOrderItemIds());
+            logger.debug("Order items cancelled successfully: {}", cancelledOrderItemIds);
 
             Map<String, Object> responseBody = new HashMap<>();
-            responseBody.put("data", response);
-            responseBody.put("message", "Order cancelled successfully");
+            responseBody.put("data", cancelledOrderItemIds);
+            responseBody.put("message", "Order items cancelled successfully");
             responseBody.put("status", "success");
             return ResponseEntity.ok(responseBody);
         } catch (IllegalArgumentException | IllegalStateException e) {
-            logger.warn("Error cancelling order: {}", e.getMessage());
+            logger.warn("Error cancelling order items: {}", e.getMessage());
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("data", null);
             errorResponse.put("message", e.getMessage());
             errorResponse.put("status", "error");
             return ResponseEntity.badRequest().body(errorResponse);
         } catch (Exception e) {
-            logger.error("Unexpected error cancelling order: {}", e.getMessage());
+            logger.error("Unexpected error cancelling order items: {}", e.getMessage());
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("data", null);
-            errorResponse.put("message", "Failed to cancel order: " + e.getMessage());
+            errorResponse.put("message", "Failed to cancel order items: " + e.getMessage());
             errorResponse.put("status", "error");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
@@ -123,11 +133,62 @@ public class OrderRestController {
         try {
             List<Order> orders = orderService.getUserOrders(userId);
             List<OrderResponse> response = orders.stream()
-                    .map(OrderResponse::new)
+                    .map(order -> {
+                        OrderResponse orderResponse = new OrderResponse(order);
+                        enrichOrderItems(order, orderResponse);
+                        return orderResponse;
+                    })
                     .collect(Collectors.toList());
             logger.debug("Fetched orders for userId {}: {}", userId, response);
 
             Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("data", response);
+            responseBody.put("message", "Orders retrieved successfully");
+            responseBody.put("status", "success");
+            return ResponseEntity.ok(responseBody);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Error fetching orders: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.badRequest().body(errorResponse);
+        } catch (Exception e) {
+            logger.error("Unexpected error fetching orders: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", "Failed to fetch orders: " + e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    @GetMapping("/user/{userId}/status")
+    public ResponseEntity<Map<String, Object>> getUserOrdersByStatus(
+            @PathVariable Long userId,
+            @RequestParam(required = false) String status) {
+        logger.info("Received request to fetch orders for userId={} with status={}", userId, status);
+        try {
+            if (userId == null) {
+                throw new IllegalArgumentException("userId is required");
+            }
+            List<Order> orders = orderService.findOrdersByUserIdAndStatus(userId, status);
+            List<OrderResponse> response = orders.stream()
+                    .map(order -> {
+                        OrderResponse orderResponse = new OrderResponse(order);
+                        enrichOrderItems(order, orderResponse);
+                        return orderResponse;
+                    })
+                    .collect(Collectors.toList());
+
+            Map<String, Object> responseBody = new HashMap<>();
+            if (orders.isEmpty()) {
+                responseBody.put("data", response);
+                responseBody.put("message", "No orders found for userId " + userId + (status != null ? " with status " + status : ""));
+                responseBody.put("status", "success");
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(responseBody);
+            }
+
             responseBody.put("data", response);
             responseBody.put("message", "Orders retrieved successfully");
             responseBody.put("status", "success");
@@ -158,7 +219,6 @@ public class OrderRestController {
                 throw new IllegalArgumentException("transactionUuid and amount are required");
             }
 
-            // Find order by transaction UUID
             Order order = orderService.findOrderByTransactionUuid(request.getTransaction_uuid());
             logger.debug("Found order: {}", order);
             if (order == null) {
@@ -175,15 +235,16 @@ public class OrderRestController {
             logger.debug("Stored amount: {}, Received amount: {}", payment.getAmount(), request.getAmount());
             if (Double.compare(payment.getAmount(), request.getAmount()) == 0) {
                 payment.setStatus(PaymentStatus.COMPLETED);
-                payment.setEsewaRefId(request.getTransaction_uuid()); // Store eSewa reference
+                payment.setEsewaRefId(request.getTransaction_uuid());
                 order.setStatus("CONFIRMED");
 
-                // Save both payment and order
                 order = orderService.saveOrder(order);
+                OrderResponse orderResponse = new OrderResponse(order);
+                enrichOrderItems(order, orderResponse);
                 logger.info("Payment verified and status updated to COMPLETED for order ID: {}", order.getId());
 
                 Map<String, Object> responseBody = new HashMap<>();
-                responseBody.put("data", new OrderResponse(order));
+                responseBody.put("data", orderResponse);
                 responseBody.put("message", "eSewa payment verified successfully");
                 responseBody.put("status", "success");
                 return ResponseEntity.ok(responseBody);
@@ -206,6 +267,48 @@ public class OrderRestController {
             errorResponse.put("message", "Failed to verify eSewa payment: " + e.getMessage());
             errorResponse.put("status", "error");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    private void enrichOrderItems(Order order, OrderResponse orderResponse) {
+        if (order.getOrderItems() != null) {
+            List<OrderItemResponse> orderItemResponses = order.getOrderItems().stream()
+                    .map(item -> {
+                        FoodItem foodItem = foodItemService.findById(item.getFoodItem().getId());
+                        FoodItemDto foodItemDto = new FoodItemDto();
+                        if (foodItem != null) {
+                            mapFoodToDto(foodItem, foodItemDto);
+                        } else {
+                            logger.warn("Food item not found for foodItemId: {}", item.getFoodItem().getId());
+                            foodItemDto.setId(item.getFoodItem().getId());
+                            foodItemDto.setName("Unknown");
+                        }
+                        return new OrderItemResponse(foodItemDto, item.getQuantity());
+                    })
+                    .collect(Collectors.toList());
+            orderResponse.setOrderItems(orderItemResponses); // This now matches the updated OrderResponse
+        }
+    }
+
+    private void mapFoodToDto(FoodItem food, FoodItemDto dto) {
+        dto.setId(food.getId());
+        dto.setName(food.getName() != null ? food.getName() : "");
+        dto.setDescription(food.getDescription() != null ? food.getDescription() : "");
+        dto.setPrice(food.getPrice());
+        dto.setOriginalPrice(food.getOriginalPrice());
+        dto.setAvailable(food.getAvailable() != null ? food.getAvailable() : false);
+        dto.setImagePath(food.getImagePath() != null ? food.getImagePath() : "");
+        dto.setPreparationTime(food.getPreparationTime() != null ? food.getPreparationTime() : "");
+        dto.setTags(food.getTags() != null ? new HashSet<>(food.getTags()) : new HashSet<>());
+        dto.setDiscountPercentage(food.getDiscountPercentage() != null ? food.getDiscountPercentage() : 0.0);
+        if (food.getUser() != null) {
+            dto.setUserId(food.getUser().getId());
+            UserDto userDto = new UserDto();
+            userDto.setEmail(food.getUser().getEmail());
+            userDto.setUsername(food.getUser().getUsername());
+            userDto.setLocation(food.getUser().getLocation());
+            userDto.setPhoneNumber(food.getUser().getPhoneNumber());
+            dto.setUser(userDto);
         }
     }
 }

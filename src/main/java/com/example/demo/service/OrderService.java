@@ -16,13 +16,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class OrderService {
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
+    private static final List<String> VALID_STATUSES = Arrays.asList("PLACED", "CONFIRMED", "CANCELLED");
 
     @Autowired
     private OrderRepository orderRepository;
@@ -97,11 +100,94 @@ public class OrderService {
     }
 
     public List<Order> getUserOrders(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId is required");
+        }
+        User user = userService.findById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found");
+        }
         return orderRepository.findByUserId(userId);
     }
 
     public Order findOrderByTransactionUuid(String transactionUuid) {
+        if (transactionUuid == null) {
+            throw new IllegalArgumentException("transactionUuid is required");
+        }
         return orderRepository.findByPayment_TransactionId(transactionUuid);
+    }
+
+    public List<Order> findOrdersByUserIdAndStatus(Long userId, String status) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId is required");
+        }
+        User user = userService.findById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+        if (status != null && !VALID_STATUSES.contains(status.toUpperCase())) {
+            throw new IllegalArgumentException("Invalid status: " + status + ". Allowed values: " + VALID_STATUSES);
+        }
+        if (status == null) {
+            logger.info("Fetching all orders for userId={}", userId);
+            return orderRepository.findByUserId(userId);
+        }
+        logger.info("Fetching orders for userId={} with status={}", userId, status);
+        return orderRepository.findByUserIdAndStatus(userId, status.toUpperCase());
+    }
+
+    @Transactional
+    public List<Long> cancelOrderItems(Long userId, List<Long> orderItemIds) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId is required");
+        }
+        if (orderItemIds == null || orderItemIds.isEmpty()) {
+            throw new IllegalArgumentException("orderItemIds cannot be null or empty");
+        }
+
+        User user = userService.findById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+        List<Long> cancelledOrderItemIds = new ArrayList<>();
+        Map<Long, Order> ordersToUpdate = new HashMap<>();
+
+        for (Long orderItemId : orderItemIds) {
+            OrderItem orderItem = orderRepository.findOrderItemById(orderItemId)
+                    .orElseThrow(() -> new IllegalArgumentException("Order item not found: " + orderItemId));
+
+            Order order = orderItem.getOrder();
+            if (!order.getUser().getId().equals(userId)) {
+                throw new IllegalStateException("Unauthorized to cancel order item: " + orderItemId);
+            }
+            if (!order.getStatus().equals("PLACED")) {
+                throw new IllegalStateException("Only items in PLACED orders can be cancelled: " + orderItemId);
+            }
+
+            order.getOrderItems().remove(orderItem);
+            cancelledOrderItemIds.add(orderItemId);
+            ordersToUpdate.put(order.getId(), order);
+        }
+
+        for (Order order : ordersToUpdate.values()) {
+            if (order.getOrderItems().isEmpty()) {
+                order.setStatus("CANCELLED");
+                if (order.getPayment() != null) {
+                    order.getPayment().setStatus(PaymentStatus.CANCELLED);
+                }
+            } else {
+                double newAmount = order.getOrderItems().stream()
+                        .mapToDouble(oi -> oi.getFoodItem().getPrice() * oi.getQuantity())
+                        .sum();
+                if (order.getPayment() != null) {
+                    order.getPayment().setAmount(newAmount);
+                }
+            }
+            orderRepository.save(order);
+        }
+
+        return cancelledOrderItemIds;
     }
 
     @Transactional
@@ -122,17 +208,14 @@ public class OrderService {
                 throw new IllegalStateException("No payment associated with the order");
             }
 
-            // Log the comparison details
             logger.info("Payment verification - Stored amount: {}, Received amount: {}, Transaction UUID: {}", 
                        payment.getAmount(), amount, transactionUuid);
 
             if (Double.compare(payment.getAmount(), amount) == 0) {
-                // Update payment status
                 payment.setStatus(PaymentStatus.COMPLETED);
                 payment.setEsewaRefId(transactionUuid);
                 paymentRepository.save(payment);
 
-                // Update order status
                 order.setStatus("CONFIRMED");
                 orderRepository.save(order);
 
