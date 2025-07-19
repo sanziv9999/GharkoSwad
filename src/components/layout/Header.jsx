@@ -10,6 +10,7 @@ import CartSidebar from '../cart/CartSidebar';
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMenuDropdownOpen, setIsMenuDropdownOpen] = useState(false);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
   const { setIsCartOpen } = useCart(); // Use setIsCartOpen from CartContext
   const navigate = useNavigate();
@@ -91,7 +92,10 @@ const Header = () => {
                   </button>
                   <CartIcon onClick={handleCartClick} className="relative" />
                   <div className="relative">
-                    <button className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200">
+                    <button 
+                      onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                      className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                    >
                       <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center">
                         <User className="w-4 h-4 text-white" />
                       </div>
@@ -99,6 +103,24 @@ const Header = () => {
                         {user?.name}
                       </span>
                     </button>
+                    {isUserDropdownOpen && (
+                      <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-2">
+                        <Link
+                          to="/my-orders"
+                          className="block px-4 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary-600"
+                          onClick={() => setIsUserDropdownOpen(false)}
+                        >
+                          My Orders
+                        </Link>
+                        <Link
+                          to="/dashboard"
+                          className="block px-4 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary-600"
+                          onClick={() => setIsUserDropdownOpen(false)}
+                        >
+                          Dashboard
+                        </Link>
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={handleLogout}
@@ -174,6 +196,24 @@ const Header = () => {
                 >
                   Offers
                 </Link>
+                {isAuthenticated && (
+                  <>
+                    <Link
+                      to="/my-orders"
+                      className="block px-3 py-2 text-gray-700 hover:text-primary-600 font-medium transition-colors duration-200"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      My Orders
+                    </Link>
+                    <Link
+                      to="/dashboard"
+                      className="block px-3 py-2 text-gray-700 hover:text-primary-600 font-medium transition-colors duration-200"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                  </>
+                )}
                 {isAuthenticated && (
                   <button
                     onClick={() => {

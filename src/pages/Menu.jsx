@@ -186,7 +186,7 @@ const Menu = () => {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 mb-1">{item.name}</h3>
-                    <p className="text-sm text-gray-600">by {item.chef || 'Unknown Chef'}</p>
+                    <p className="text-sm text-gray-600">by {item.user?.username || 'Unknown Chef'}</p>
                   </div>
                   <div className="flex items-center space-x-1">
                     <Star className="w-4 h-4 text-yellow-400 fill-current" />

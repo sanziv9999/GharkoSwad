@@ -21,6 +21,7 @@ import Checkout from './pages/Checkout';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentFailure from './pages/PaymentFailure';
 import OrderSuccess from './pages/OrderSuccess';
+import MyOrders from './pages/MyOrders';
 import Offers from './pages/offers/Offers';
 import Feed from './pages/feed/Feed';
 
@@ -109,6 +110,7 @@ function App() {
                     <Route path="/payment-success" element={<PaymentSuccess />} />
                     <Route path="/payment-failure" element={<PaymentFailure />} />
                     <Route path="/order-success" element={<OrderSuccess />} />
+                    <Route path="/my-orders" element={<MyOrders />} />
                     <Route path='/delivery-dashboard' element={<DeliveryDashboard/>}/>
                     <Route
                       path="/dashboard"
