@@ -132,10 +132,14 @@ export const CartProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
+      console.log('Clearing cart for user:', userId);
       await apiService.clearCart(userId, token);
       setCartItems([]);
+      console.log('Cart cleared successfully');
     } catch (err) {
+      console.error('Failed to clear cart:', err);
       setError(err.message || 'Failed to clear cart');
+      throw err; // Re-throw to allow calling code to handle
     } finally {
       setLoading(false);
     }

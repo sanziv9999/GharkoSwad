@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { apiService } from '../api/apiService';
+import { useAuth } from '../context/AuthContext';
 
-// Create the Order Context
 const OrderContext = createContext(undefined);
 
-// Custom hook to use the Order context
 export const useOrders = () => {
   const context = useContext(OrderContext);
   if (context === undefined) {
@@ -12,65 +12,81 @@ export const useOrders = () => {
   return context;
 };
 
-// Order Provider component
 export const OrderProvider = ({ children }) => {
-  const currentDate = new Date('2025-06-27T07:21:00+05:45'); // Current time: 07:21 AM IST, June 27, 2025
+  const { user } = useAuth();
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const [orders, setOrders] = useState([
-    {
-      id: 'ORD-001',
-      userId: '1',
-      items: [
-        {
-          id: 1,
-          name: 'Traditional Dal Bhat',
-          price: 180,
-          quantity: 2,
-          chef: 'Ama Didi Kitchen',
-          image: 'http://localhost:8080/uploads/images/dal-bhat.jpg' // Example image path
-        }
-      ],
-      total: 360,
-      status: 'preparing',
-      customerInfo: {
-        name: 'John Doe',
-        phone: '+977-9841234567',
-        address: 'Thamel, Kathmandu',
-        coordinates: [27.7172, 85.3240]
-      },
-      deliveryInfo: {
-        driverId: 'DRV-001',
-        driverName: 'Ram Bahadur',
-        driverPhone: '+977-9841234568',
-        estimatedTime: '25-30 min',
-        currentLocation: [27.7100, 85.3200]
-      },
-      createdAt: currentDate.toISOString(),
-      updatedAt: currentDate.toISOString()
-    }
-  ]);
-
-  const createOrder = (orderData) => {
-    if (!orderData || !orderData.items || !orderData.customerInfo) {
-      throw new Error('Invalid order data: items and customerInfo are required');
-    }
-
-    const newOrder = {
-      id: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`, // Unique ID with random suffix
-      ...orderData,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (!user?.id) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await apiService.get(`/orders/user/${user.id}`, localStorage.getItem('token'));
+        setOrders(result.data || []);
+      } catch (err) {
+        setError(err.message || 'Failed to load orders');
+      } finally {
+        setLoading(false);
+      }
     };
+    fetchOrders();
+  }, [user?.id]);
 
-    // Ensure items have necessary fields
-    newOrder.items = orderData.items.map(item => ({
-      ...item,
-      image: item.imagePath ? imagePathService.getImageUrl(item.imagePath) : item.image || '' // Fallback image handling
-    }));
+  const createOrder = async (orderData) => {
+    if (!orderData || !orderData.items) {
+      throw new Error('Invalid order data: items are required');
+    }
 
-    setOrders(prev => [newOrder, ...prev]);
-    return newOrder;
+    setLoading(true);
+    setError(null);
+    try {
+      const orderRequest = {
+        userId: orderData.userId || user?.id || 'guest',
+        foodItemIds: orderData.items.map(item => item.id),
+        quantities: orderData.items.map(item => item.quantity),
+        amount: orderData.amount,
+        paymentMethod: orderData.paymentMethod,
+        specialInstructions: orderData.specialInstructions || '',
+        deliveryLocation: orderData.deliveryLocation || user?.address || 'Not specified',
+        deliveryPhone: orderData.deliveryPhone || user?.phone || '',
+        deliveryCoordinates: orderData.deliveryCoordinates || '[27.7172, 85.3240]',
+        transactionUuid: orderData.transactionUuid || null,
+      };
+      console.log('Order request being sent:', orderRequest);
+      const response = await apiService.post('/orders/place', orderRequest, localStorage.getItem('token'));
+      const order = response.data;
+      setOrders(prev => [order, ...prev.filter(o => o.id !== order.id)]);
+      return order;
+    } catch (err) {
+      setError(err.message || 'Failed to place order');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyEsewaPayment = async (transactionUuid, amount) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiService.verifyEsewaPayment(transactionUuid, amount);
+      if (response.status === 'success') {
+        // Update the local orders state with the verified order
+        const updatedOrder = response.data;
+        setOrders(prev => prev.map(order =>
+          order.id === updatedOrder.id ? updatedOrder : order
+        ));
+      }
+      return response;
+    } catch (err) {
+      setError(err.message || 'Failed to verify payment');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const updateOrderStatus = (orderId, status, additionalData = {}) => {
@@ -81,12 +97,7 @@ export const OrderProvider = ({ children }) => {
     setOrders(prev =>
       prev.map(order =>
         order.id === orderId
-          ? {
-              ...order,
-              status,
-              ...additionalData,
-              updatedAt: new Date().toISOString()
-            }
+          ? { ...order, status, ...additionalData, updatedAt: new Date().toISOString() }
           : order
       )
     );
@@ -101,7 +112,7 @@ export const OrderProvider = ({ children }) => {
   };
 
   const getActiveOrders = () => {
-    return orders.filter(order => 
+    return orders.filter(order =>
       ['pending', 'confirmed', 'preparing', 'ready', 'picked_up'].includes(order.status)
     );
   };
@@ -109,10 +120,13 @@ export const OrderProvider = ({ children }) => {
   const value = {
     orders,
     createOrder,
+    verifyEsewaPayment,
     updateOrderStatus,
     getOrdersByUser,
     getOrdersByDriver,
-    getActiveOrders
+    getActiveOrders,
+    loading,
+    error,
   };
 
   return <OrderContext.Provider value={value}>{children}</OrderContext.Provider>;

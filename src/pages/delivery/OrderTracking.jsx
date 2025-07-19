@@ -24,7 +24,7 @@ const OrderTracking = () => {
   const [driverLocation, setDriverLocation] = useState([27.7100, 85.3200]);
 
   useEffect(() => {
-    const foundOrder = orders.find(o => o.id === orderId);
+    const foundOrder = orders.find(o => o.id === parseInt(orderId));
     setOrder(foundOrder);
   }, [orderId, orders]);
 
@@ -34,8 +34,8 @@ const OrderTracking = () => {
 
     const interval = setInterval(() => {
       setDriverLocation(prev => {
-        const targetLat = order.customerInfo.coordinates[0];
-        const targetLng = order.customerInfo.coordinates[1];
+        const targetLat = JSON.parse(order.deliveryCoordinates)[0];
+        const targetLng = JSON.parse(order.deliveryCoordinates)[1];
         const currentLat = prev[0];
         const currentLng = prev[1];
         
@@ -57,7 +57,8 @@ const OrderTracking = () => {
       preparing: { label: 'Preparing', color: 'warning', icon: Package },
       ready: { label: 'Ready for Pickup', color: 'success', icon: CheckCircle },
       picked_up: { label: 'Out for Delivery', color: 'primary', icon: Truck },
-      delivered: { label: 'Delivered', color: 'success', icon: Home }
+      delivered: { label: 'Delivered', color: 'success', icon: Home },
+      cancelled: { label: 'Cancelled', color: 'error', icon: Package },
     };
     return statusMap[status] || statusMap.pending;
   };
@@ -68,7 +69,7 @@ const OrderTracking = () => {
     { key: 'preparing', label: 'Preparing Food', time: 'Now' },
     { key: 'ready', label: 'Ready for Pickup', time: '' },
     { key: 'picked_up', label: 'Out for Delivery', time: '' },
-    { key: 'delivered', label: 'Delivered', time: '' }
+    { key: 'delivered', label: 'Delivered', time: '' },
   ];
 
   if (!order) {
@@ -84,6 +85,13 @@ const OrderTracking = () => {
 
   const statusInfo = getStatusInfo(order.status);
   const StatusIcon = statusInfo.icon;
+
+  const handleStatusUpdate = (newStatus) => {
+    updateOrderStatus(order.id, newStatus);
+    if (newStatus === 'delivered') {
+      setDriverLocation(JSON.parse(order.deliveryCoordinates));
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -109,22 +117,22 @@ const OrderTracking = () => {
               <h2 className="text-xl font-bold text-gray-900 mb-4">Live Tracking</h2>
               <div className="h-80 rounded-lg overflow-hidden">
                 <MapContainer
-                  center={[27.7172, 85.3240]}
+                  center={JSON.parse(order.deliveryCoordinates) || [27.7172, 85.3240]}
                   zoom={13}
                   style={{ height: '100%', width: '100%' }}
                 >
                   <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   />
                   
                   {/* Customer Location */}
-                  <Marker position={order.customerInfo.coordinates}>
+                  <Marker position={JSON.parse(order.deliveryCoordinates)}>
                     <Popup>
                       <div className="text-center">
                         <Home className="w-6 h-6 mx-auto mb-2 text-primary-500" />
                         <p className="font-semibold">Delivery Address</p>
-                        <p className="text-sm">{order.customerInfo.address}</p>
+                        <p className="text-sm">{order.deliveryLocation}</p>
                       </div>
                     </Popup>
                   </Marker>
@@ -135,8 +143,8 @@ const OrderTracking = () => {
                       <Popup>
                         <div className="text-center">
                           <Truck className="w-6 h-6 mx-auto mb-2 text-blue-500" />
-                          <p className="font-semibold">{order.deliveryInfo?.driverName}</p>
-                          <p className="text-sm">Delivery Partner</p>
+                          <p className="font-semibold">Delivery Partner</p>
+                          <p className="text-sm">Estimated Arrival: 15-20 min</p>
                         </div>
                       </Popup>
                     </Marker>
@@ -145,7 +153,7 @@ const OrderTracking = () => {
                   {/* Route Line */}
                   {order.status !== 'delivered' && (
                     <Polyline
-                      positions={[driverLocation, order.customerInfo.coordinates]}
+                      positions={[driverLocation, JSON.parse(order.deliveryCoordinates)]}
                       color="blue"
                       weight={3}
                       opacity={0.7}
@@ -193,10 +201,21 @@ const OrderTracking = () => {
                   );
                 })}
               </div>
+              {['preparing', 'ready', 'picked_up'].includes(order.status) && (
+                <div className="mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleStatusUpdate(orderSteps[orderSteps.findIndex(s => s.key === order.status) + 1]?.key || 'delivered')}
+                    className="w-full"
+                  >
+                    Mark as {orderSteps[orderSteps.findIndex(s => s.key === order.status) + 1]?.label || 'Delivered'}
+                  </Button>
+                </div>
+              )}
             </Card>
 
             {/* Delivery Info */}
-            {order.deliveryInfo && (
+            {order.status !== 'pending' && order.status !== 'confirmed' && (
               <Card className="p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Delivery Partner</h2>
                 <div className="flex items-center space-x-4 mb-4">
@@ -204,8 +223,8 @@ const OrderTracking = () => {
                     <Truck className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900">{order.deliveryInfo.driverName}</p>
-                    <p className="text-sm text-gray-600">Delivery Partner</p>
+                    <p className="font-semibold text-gray-900">Delivery Partner</p>
+                    <p className="text-sm text-gray-600">Estimated Arrival: 15-20 min</p>
                   </div>
                 </div>
                 <Button variant="outline" className="w-full flex items-center justify-center space-x-2">
@@ -225,14 +244,14 @@ const OrderTracking = () => {
                       <p className="font-medium text-gray-900">{item.name}</p>
                       <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
                     </div>
-                    <span className="font-semibold">₹{item.price * item.quantity}</span>
+                    <span className="font-semibold">₹{(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
               <div className="border-t border-gray-200 mt-4 pt-4">
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
-                  <span>₹{order.total}</span>
+                  <span>₹{order.amount.toFixed(2)}</span>
                 </div>
               </div>
             </Card>

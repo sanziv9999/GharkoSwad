@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { MapPin, CreditCard, Clock, Phone, User } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrderContext';
@@ -8,30 +8,53 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
 import Banner from '../components/ui/Banner';
-import imagePathService from '../services/imageLocation/imagePath'; // Import image service
+import imagePathService from '../services/imageLocation/imagePath';
+import CryptoJS from 'crypto-js';
 
 const Checkout = () => {
   const { cartItems, getTotalPrice, clearCart } = useCart();
-  const { createOrder } = useOrders();
+  const { createOrder, verifyEsewaPayment, loading, error } = useOrders();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [banner, setBanner] = useState({ show: false, type: '', message: '' });
-  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    phone: '',
-    address: '',
-    paymentMethod: 'cash',
+    name: user?.username || '',
+    phone: user?.phone || '',
+    address: user?.address || '',
+    paymentMethod: 'CASH_ON_DELIVERY',
     specialInstructions: ''
   });
-  const [error, setError] = useState(null);
+  const [deliveryCoordinates, setDeliveryCoordinates] = useState('[27.7172, 85.3240]');
+
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      name: user?.username || '',
+      phone: user?.phone || '',
+      address: user?.address || ''
+    }));
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setDeliveryCoordinates(`[${latitude}, ${longitude}]`);
+        },
+        (error) => {
+          console.warn('Geolocation error:', error.message);
+          setBanner({ show: true, type: 'warning', message: 'Could not fetch live location, using default coordinates.' });
+        }
+      );
+    }
+    // Payment success handling is now done in PaymentSuccess component
+  }, [user, location]);
 
   useEffect(() => {
     if (!cartItems.length) {
-      setError('Your cart is empty. Please add items before checking out.');
+      setBanner({ show: true, type: 'error', message: 'Your cart is empty. Please add items before checking out.' });
     } else {
-      setError(null);
+      setBanner(prev => ({ ...prev, show: false }));
     }
   }, [cartItems]);
 
@@ -45,69 +68,154 @@ const Checkout = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handlePlaceOrder = async (e) => {
-    e.preventDefault();
+  const generateTransactionUuid = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let uuid = '';
+    for (let i = 0; i < 25; i++) {
+      uuid += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return uuid;
+  };
 
+  const generateSignature = (data, secretKey) => {
+    return CryptoJS.HmacSHA256(data, secretKey).toString(CryptoJS.enc.Base64);
+  };
+
+  const handleEsewaPayment = async (e) => {
+    e.preventDefault();
     if (!formData.name || !formData.phone || !formData.address) {
       showBanner('error', 'Please fill in all required fields');
       return;
     }
 
+    const totalAmount = Math.round((getTotalPrice() + 100) * 100) / 100;
+    const transactionUuid = generateTransactionUuid();
+    const productCode = 'EPAYTEST';
+    const secretKey = '8gBm/:&EnhH.1/q';
+    const signedFieldNames = 'total_amount,transaction_uuid,product_code';
+
+    const data = `total_amount=${totalAmount},transaction_uuid=${transactionUuid},product_code=${productCode}`;
+    const signature = generateSignature(data, secretKey);
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'https://rc-epay.esewa.com.np/api/epay/main/v2/form';
+    form.target = '_blank';
+
+    const addInput = (name, value) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    };
+
+    addInput('amount', totalAmount);
+    addInput('total_amount', totalAmount);
+    addInput('tax_amount', '0');
+    addInput('transaction_uuid', transactionUuid);
+    addInput('product_code', productCode);
+    addInput('product_service_charge', '0');
+    addInput('product_delivery_charge', '0');
+    addInput('success_url', 'http://localhost:5173/payment-success');
+    addInput('failure_url', 'http://localhost:5173/payment-failure');
+    addInput('signed_field_names', signedFieldNames);
+    addInput('signature', signature);
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+
+    try {
+      const orderData = {
+        userId: user?.id || 'guest',
+        items: cartItems.map(item => ({
+          id: item.foodId,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          imagePath: item.imagePath || item.imageUrl,
+        })),
+        amount: totalAmount,
+        paymentMethod: 'ESEWA',
+        specialInstructions: formData.specialInstructions,
+        deliveryFee: 100,
+        transactionUuid: transactionUuid,
+        deliveryLocation: formData.address,
+        deliveryPhone: formData.phone,
+        deliveryCoordinates: deliveryCoordinates,
+      };
+      await createOrder(orderData);
+      showBanner('info', 'Redirecting to eSewa for payment...');
+    } catch (err) {
+      showBanner('error', err.message || 'Failed to initiate payment. Please try again.');
+    }
+  };
+
+
+
+  const handlePlaceOrder = async (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.phone || !formData.address) {
+      showBanner('error', 'Please fill in all required fields');
+      return;
+    }
     if (cartItems.length === 0) {
       showBanner('error', 'Your cart is empty');
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
     try {
-      // Simulate API call with a 2-second delay
+      const totalAmount = Math.round((getTotalPrice() + 100) * 100) / 100;
       const orderData = {
         userId: user?.id || 'guest',
         items: cartItems.map(item => ({
-          ...item,
-          image: imagePathService.getImageUrl(item.imagePath || item.image) // Ensure image URL is included
+          id: item.foodId,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          imagePath: item.imagePath || item.imageUrl,
         })),
-        total: getTotalPrice() + 30, // Including delivery fee
-        customerInfo: {
-          name: formData.name,
-          phone: formData.phone,
-          address: formData.address,
-          coordinates: [27.7172, 85.3240] // Default Kathmandu coordinates
-        },
+        amount: totalAmount,
         paymentMethod: formData.paymentMethod,
         specialInstructions: formData.specialInstructions,
-        deliveryFee: 30
+        deliveryLocation: formData.address,
+        deliveryPhone: formData.phone,
+        deliveryCoordinates: deliveryCoordinates,
       };
-
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const order = await createOrder(orderData); // Assuming createOrder returns an order object
-      clearCart();
+      const order = await createOrder(orderData);
+      try {
+        await clearCart();
+      } catch (cartError) {
+        console.warn('Failed to clear cart:', cartError);
+        // Continue with success flow even if cart clearing fails
+      }
       
-      showBanner('success', 'Order placed successfully!');
-      
-      setTimeout(() => {
-        navigate(`/order-tracking/${order.id}`);
-      }, 2000);
-
-    } catch (error) {
-      setError('Failed to place order. Please try again.');
-      showBanner('error', 'Failed to place order. Please try again.');
-    } finally {
-      setIsLoading(false);
+      // Redirect to order success page with order details
+      navigate('/order-success', { 
+        state: { 
+          orderData: {
+            id: order.id,
+            amount: order.amount,
+            deliveryLocation: order.deliveryLocation,
+            paymentMethod: order.paymentMethod
+          }
+        } 
+      });
+    } catch (err) {
+      showBanner('error', err.message || 'Failed to place order. Please try again.');
     }
   };
 
-  const deliveryFee = 30;
+  const deliveryFee = 100;
   const subtotal = getTotalPrice();
-  const total = subtotal + deliveryFee;
+  const total = Math.round((subtotal + deliveryFee) * 100) / 100;
 
-  if (error && !cartItems.length) {
+  if (banner.show && banner.type === 'error' && !cartItems.length) {
     return (
       <div className="min-h-screen bg-gray-50 py-8 flex items-center justify-center">
         <Card className="p-6 text-center">
-          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-red-600 mb-4">{banner.message}</p>
           <Button onClick={() => navigate('/menu')}>Go to Menu</Button>
         </Card>
       </div>
@@ -117,9 +225,9 @@ const Checkout = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       {banner.show && (
-        <Banner 
-          type={banner.type} 
-          message={banner.message} 
+        <Banner
+          type={banner.type}
+          message={banner.message}
           onClose={() => setBanner({ show: false, type: '', message: '' })}
         />
       )}
@@ -131,7 +239,6 @@ const Checkout = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Order Form */}
           <div className="lg:col-span-2 space-y-6">
             <Card className="p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
@@ -189,9 +296,8 @@ const Checkout = () => {
               </h2>
               <div className="space-y-3">
                 {[
-                  { value: 'cash', label: 'Cash on Delivery', icon: '💵' },
-                  { value: 'esewa', label: 'eSewa', icon: '📱' },
-                  { value: 'khalti', label: 'Khalti', icon: '💳' }
+                  { value: 'CASH_ON_DELIVERY', label: 'Cash on Delivery', icon: '💵' },
+                  { value: 'ESEWA', label: 'eSewa', icon: '📱' },
                 ].map((method) => (
                   <label key={method.value} className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors duration-200">
                     <input
@@ -206,11 +312,17 @@ const Checkout = () => {
                     <span className="ml-3 font-medium text-gray-900">{method.label}</span>
                   </label>
                 ))}
+                {formData.paymentMethod === 'ESEWA' && (
+                  <div className="mt-4">
+                    <Button onClick={handleEsewaPayment} disabled={loading} className="w-full py-3">
+                      {loading ? 'Processing...' : 'Pay with eSewa'}
+                    </Button>
+                  </div>
+                )}
               </div>
             </Card>
           </div>
 
-          {/* Order Summary */}
           <div className="space-y-6">
             <Card className="p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-6">Order Summary</h2>
@@ -218,10 +330,10 @@ const Checkout = () => {
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex items-center space-x-3">
                     <img
-                      src={imagePathService.getImageUrl(item.imagePath || item.imageUrl)} // Use image service
+                      src={imagePathService.getImageUrl(item.imagePath || item.imageUrl)}
                       alt={item.name}
                       className="w-12 h-12 rounded-lg object-cover"
-                      onError={(e) => { e.target.src = '/placeholder-image.jpg'; }} // Fallback image
+                      onError={(e) => { e.target.src = '/placeholder-image.jpg'; }}
                     />
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900">{item.name}</h3>
@@ -231,7 +343,7 @@ const Checkout = () => {
                   </div>
                 ))}
               </div>
-              
+
               <div className="border-t border-gray-200 mt-6 pt-6 space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
@@ -257,13 +369,15 @@ const Checkout = () => {
               <p className="text-sm text-gray-600 mt-1">Based on your location</p>
             </Card>
 
-            <Button 
-              onClick={handlePlaceOrder}
-              className="w-full py-4 text-lg font-semibold"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Placing Order...' : `Place Order - ₹${total.toFixed(2)}`}
-            </Button>
+            {formData.paymentMethod !== 'ESEWA' && (
+              <Button
+                onClick={handlePlaceOrder}
+                className="w-full py-4 text-lg font-semibold"
+                disabled={loading || !cartItems.length}
+              >
+                {loading ? 'Placing Order...' : `Place Order - ₹${total.toFixed(2)}`}
+              </Button>
+            )}
           </div>
         </div>
       </div>

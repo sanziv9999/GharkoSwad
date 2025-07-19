@@ -9,27 +9,27 @@ const handleResponse = async (response) => {
 
   if (!response.ok) {
     if (contentType && contentType.includes('application/json')) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({})); // Handle invalid JSON
       errorMessage = error.message || JSON.stringify(error) || errorMessage;
     } else {
-      errorMessage = await response.text() || errorMessage;
+      errorMessage = await response.text().catch(() => '') || errorMessage;
     }
     console.error(`API error: ${response.status} - ${errorMessage} - URL: ${response.url}`);
     throw new Error(errorMessage);
   }
 
   if (contentType && contentType.includes('application/json')) {
-    const result = await response.json();
+    const result = await response.json().catch(() => ({})); // Handle invalid JSON
     console.log('API response:', result);
-    if (result.status !== 'success') {
+    if (result.status !== 'success' && response.status !== 204) { // Allow 204 No Content
       throw new Error(result.message || 'Operation failed');
     }
     return result; // Return the full response object { status, message, data }
   }
 
-  const text = await response.text();
+  const text = await response.text().catch(() => '');
   console.warn('Unexpected non-JSON response:', text);
-  return { status: 'success', message: text };
+  return { status: 'success', message: text || 'Operation successful' };
 };
 
 export const apiService = {
@@ -106,6 +106,7 @@ export const apiService = {
 
   async post(endpoint, data, token = null) {
     console.log(`POST request: ${endpoint}`, data);
+    console.log('Request body JSON:', JSON.stringify(data, null, 2));
     const headers = {
       ...API_CONFIG.HEADERS,
       ...(token && { Authorization: `Bearer ${token}` }),
@@ -144,6 +145,20 @@ export const apiService = {
     return handleResponse(response);
   },
 
+  async put(endpoint, data, token = null) {
+    console.log(`PUT request: ${endpoint}`, data);
+    const headers = {
+      ...API_CONFIG.HEADERS,
+      ...(token && { Authorization: `Bearer ${token}` }),
+    };
+    const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
   async delete(endpoint, token = null) {
     console.log(`DELETE request: ${endpoint}`);
     const headers = {
@@ -157,7 +172,6 @@ export const apiService = {
     return handleResponse(response);
   },
 
-  // Fetch foods by user ID
   async getFoodsById(id, params = {}, token = null) {
     const queryString = new URLSearchParams({ userId: id, ...params }).toString();
     const endpoint = `/food/list/by-user${queryString ? `?${queryString}` : ''}`;
@@ -167,25 +181,21 @@ export const apiService = {
     return result.data; // Return the data array directly
   },
 
-  // Add food item
   async addFood(formData, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     return this.postMultipart('/food/add', formData, tokenFromStorage);
   },
 
-  // Update food item
   async updateFood(id, formData, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     return this.patchMultipart(`/food/update/${id}`, formData, tokenFromStorage);
   },
 
-  // Delete food item
   async deleteFood(id, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     return this.delete(`/food/delete/${id}`, tokenFromStorage);
   },
 
-  // Fetch all food items
   async getAllFoods(token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     console.log(`Requesting: ${API_CONFIG.BASE_URL}/food/list with token: ${tokenFromStorage}`);
@@ -193,10 +203,8 @@ export const apiService = {
     return result.data; // Return the data array directly
   },
 
-  // Add item to cart
   async addToCart(userId, foodId, quantity = 1, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
-    // Convert and validate foodId and userId
     const parsedFoodId = parseInt(foodId, 10);
     if (isNaN(parsedFoodId)) {
       throw new Error('Invalid foodId: must be a valid number');
@@ -212,16 +220,14 @@ export const apiService = {
     return response;
   },
 
-  // Get cart items for a user
   async getCartItems(userId, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     const endpoint = `/cart?userId=${userId}`;
     console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
     const result = await this.get(endpoint, tokenFromStorage);
-    return result.data; // Return the data array directly
+    return result.data || []; // Return the data array or empty array if null/undefined
   },
 
-  // Increase quantity of an item in cart
   async increaseCartQuantity(userId, foodId, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     const parsedFoodId = parseInt(foodId, 10);
@@ -237,7 +243,6 @@ export const apiService = {
     return this.put(endpoint, {}, tokenFromStorage); // Using PUT for update
   },
 
-  // Decrease quantity of an item in cart
   async decreaseCartQuantity(userId, foodId, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     const parsedFoodId = parseInt(foodId, 10);
@@ -253,7 +258,6 @@ export const apiService = {
     return this.put(endpoint, {}, tokenFromStorage); // Using PUT for update
   },
 
-  // Delete an item from cart
   async deleteCartItem(userId, foodId, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     const parsedFoodId = parseInt(foodId, 10);
@@ -269,7 +273,6 @@ export const apiService = {
     return this.delete(endpoint, tokenFromStorage);
   },
 
-  // Clear all items from cart
   async clearCart(userId, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     const endpoint = `/cart?userId=${userId}`;
@@ -277,18 +280,35 @@ export const apiService = {
     return this.delete(endpoint, tokenFromStorage);
   },
 
-  // Add PUT method to apiService
-  async put(endpoint, data, token = null) {
-    console.log(`PUT request: ${endpoint}`, data);
-    const headers = {
-      ...API_CONFIG.HEADERS,
-      ...(token && { Authorization: `Bearer ${token}` }),
+  async placeOrder(orderData, token = null) {
+    const tokenFromStorage = localStorage.getItem('token');
+    console.log('Placing order request:', orderData);
+    const response = await this.post('/orders/place', orderData, tokenFromStorage);
+    return response.data; // Return the OrderResponse data
+  },
+
+  async verifyEsewaPayment(transactionUuid, amount, token = null) {
+    const tokenFromStorage = localStorage.getItem('token');
+    console.log('Verifying eSewa payment:', { transactionUuid, amount });
+    
+    // Validate input parameters
+    if (!transactionUuid || !amount) {
+      throw new Error('transactionUuid and amount are required');
+    }
+    
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      throw new Error('amount must be a valid positive number');
+    }
+    
+    const requestBody = {
+      transaction_uuid: transactionUuid, // Match backend DTO field name
+      amount: parsedAmount // Ensure amount is a number
     };
-    const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify(data),
-    });
-    return handleResponse(response);
+    
+    console.log('Sending verification request with body:', requestBody);
+    const response = await this.post('/orders/verify-esewa', requestBody, tokenFromStorage);
+    console.log('Verification response:', response);
+    return response; // Return full response object
   },
 };

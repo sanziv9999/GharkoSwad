@@ -61,6 +61,8 @@ const Login = () => {
         username: user.username,
         email: user.email,
         role: user.role,
+        phone: user.phone,
+        address: user.location,
       };
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));

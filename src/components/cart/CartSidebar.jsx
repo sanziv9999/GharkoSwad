@@ -79,12 +79,17 @@ const CartSidebar = () => {
                 {error}
               </div>
             )}
+            {!loading && cartItems.length === 0 && (
+              <div className="text-center py-12 text-gray-600">
+                Your cart is empty
+              </div>
+            )}
             {!loading && cartItems.length > 0 && (
               <div className="space-y-4">
                 {cartItems.map((item) => (
                   <Card key={item.id} className="p-4 hover:shadow-md transition-shadow duration-200">
                     <div className="flex items-start space-x-4">
-                      <img
+                    <img
                         src={imagePathService.getImageUrl(item.imagePath || item.imageUrl || '/placeholder-image.jpg')}
                         alt={item.name || 'Unknown Item'}
                         className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
@@ -135,7 +140,6 @@ const CartSidebar = () => {
                 ))}
               </div>
             )}
-                        
           </div>
 
           {/* Footer */}
