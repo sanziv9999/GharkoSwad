@@ -1,19 +1,24 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.OrderResponse;
 import com.example.demo.model.FoodItem;
 import com.example.demo.model.Order;
-import com.example.demo.model.OrderStatus;
+import com.example.demo.model.OrderItem;
 import com.example.demo.model.Payment;
 import com.example.demo.model.PaymentStatus;
 import com.example.demo.model.User;
 import com.example.demo.repository.OrderRepository;
+import com.example.demo.repository.PaymentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class OrderService {
@@ -21,6 +26,9 @@ public class OrderService {
 
     @Autowired
     private OrderRepository orderRepository;
+
+    @Autowired
+    private PaymentRepository paymentRepository;
 
     @Autowired
     private FoodItemService foodItemService;
@@ -32,89 +40,123 @@ public class OrderService {
     private PaymentService paymentService;
 
     @Transactional
-    public Order placeOrder(Long userId, Long foodItemId, Integer quantity, Double amount, String paymentMethod) {
+    public Order placeOrder(Long userId, List<Long> foodItemIds, List<Integer> quantities, Double amount, String paymentMethod,
+                           String deliveryLocation, String deliveryPhone, String deliveryCoordinates, String transactionUuid) {
         User user = userService.findById(userId);
         if (user == null) {
             throw new IllegalArgumentException("User not found");
         }
 
-        FoodItem foodItem = foodItemService.findById(foodItemId);
-        if (foodItem == null) {
-            throw new IllegalArgumentException("Food item not found");
+        if (foodItemIds == null || quantities == null || foodItemIds.size() != quantities.size()) {
+            throw new IllegalArgumentException("Food item IDs and quantities must match and not be null");
         }
 
-        if (!foodItem.getAvailable()) {
-            throw new IllegalStateException("Food item is not available");
+        List<OrderItem> orderItems = new ArrayList<>();
+        for (int i = 0; i < foodItemIds.size(); i++) {
+            Long foodItemId = foodItemIds.get(i);
+            Integer quantity = quantities.get(i);
+            FoodItem foodItem = foodItemService.findById(foodItemId);
+            if (foodItem == null) {
+                throw new IllegalArgumentException("Food item not found: " + foodItemId);
+            }
+            if (!foodItem.getAvailable()) {
+                throw new IllegalStateException("Food item is not available: " + foodItemId);
+            }
+            if (quantity <= 0) {
+                throw new IllegalArgumentException("Quantity must be positive for food item: " + foodItemId);
+            }
+            orderItems.add(new OrderItem(null, foodItem, quantity));
         }
 
-        if (quantity <= 0) {
-            throw new IllegalArgumentException("Quantity must be a positive integer");
+        Order order = new Order(user, orderItems, deliveryLocation, deliveryPhone, deliveryCoordinates);
+        for (OrderItem orderItem : orderItems) {
+            orderItem.setOrder(order);
         }
+        order = orderRepository.save(order);
 
-        // Validate amount
-        Double expectedAmount = foodItem.getPrice() * quantity; // Using Double for calculation
-        if (amount == null || Math.abs(amount - expectedAmount) > 0.01) { // Allow small floating-point differences
-            throw new IllegalArgumentException("Payment amount does not match order total");
-        }
+        Payment payment = paymentService.createPayment(order, amount, paymentMethod, transactionUuid);
+        order.setPayment(payment);
 
-        Order order = new Order(user, foodItem, quantity);
-        logger.debug("Placing order: {}", order);
-        Order savedOrder = orderRepository.save(order);
-        logger.debug("Saved order: {}", savedOrder);
-
-        // Create payment
-        Payment payment = paymentService.createPayment(savedOrder, amount, paymentMethod);
-        savedOrder.setPayment(payment);
-        logger.debug("Associated payment with order: {}", payment);
-
-        // Reload to verify persisted state
-        Order reloadedOrder = orderRepository.findById(savedOrder.getId()).orElse(null);
-        logger.debug("Reloaded order from DB: {}", reloadedOrder);
-        return savedOrder;
+        return orderRepository.save(order);
     }
 
     @Transactional
     public Order cancelOrder(Long orderId, Long userId) {
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order == null) {
-            throw new IllegalArgumentException("Order not found");
-        }
-
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Order not found"));
         if (!order.getUser().getId().equals(userId)) {
-            throw new IllegalStateException("Order does not belong to this user");
+            throw new IllegalStateException("Unauthorized to cancel this order");
         }
-
-        if (order.getStatus() != OrderStatus.PLACED) {
-            throw new IllegalStateException("Order cannot be cancelled; current status: " + order.getStatus());
+        if (!order.getStatus().equals("PLACED")) {
+            throw new IllegalStateException("Only placed orders can be cancelled");
         }
-
-        // Check payment status
-        Payment payment = paymentService.findByOrder(order);
-        if (payment.getStatus() == PaymentStatus.COMPLETED) {
-            throw new IllegalStateException("Cannot cancel order; payment already completed");
+        order.setStatus("CANCELLED");
+        if (order.getPayment() != null) {
+            order.getPayment().setStatus(PaymentStatus.CANCELLED);
         }
-
-        logger.debug("Cancelling order: {}", order);
-        order.setStatus(OrderStatus.CANCELLED);
-        payment.setStatus(PaymentStatus.CANCELLED);
-        Order savedOrder = orderRepository.save(order);
-        paymentService.updatePaymentStatus(payment.getId(), PaymentStatus.CANCELLED, null);
-        logger.debug("Cancelled order: {}", savedOrder);
-
-        // Reload to verify persisted state
-        Order reloadedOrder = orderRepository.findById(savedOrder.getId()).orElse(null);
-        logger.debug("Reloaded order from DB: {}", reloadedOrder);
-        return savedOrder;
+        return orderRepository.save(order);
     }
 
-    @Transactional(readOnly = true)
     public List<Order> getUserOrders(Long userId) {
-        User user = userService.findById(userId);
-        if (user == null) {
-            throw new IllegalArgumentException("User not found");
+        return orderRepository.findByUserId(userId);
+    }
+
+    public Order findOrderByTransactionUuid(String transactionUuid) {
+        return orderRepository.findByPayment_TransactionId(transactionUuid);
+    }
+
+    @Transactional
+    public Map<String, Object> verifyEsewaPayment(String transactionUuid, Double amount) {
+        logger.info("Verifying eSewa payment with transaction_uuid: {}, amount: {}", transactionUuid, amount);
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            Order order = orderRepository.findByPayment_TransactionId(transactionUuid);
+            if (order == null) {
+                logger.warn("Order not found for transaction_uuid: {}", transactionUuid);
+                throw new IllegalArgumentException("Order not found for transaction_uuid: " + transactionUuid);
+            }
+
+            Payment payment = order.getPayment();
+            if (payment == null) {
+                logger.warn("No payment associated with order ID: {}", order.getId());
+                throw new IllegalStateException("No payment associated with the order");
+            }
+
+            // Log the comparison details
+            logger.info("Payment verification - Stored amount: {}, Received amount: {}, Transaction UUID: {}", 
+                       payment.getAmount(), amount, transactionUuid);
+
+            if (Double.compare(payment.getAmount(), amount) == 0) {
+                // Update payment status
+                payment.setStatus(PaymentStatus.COMPLETED);
+                payment.setEsewaRefId(transactionUuid);
+                paymentRepository.save(payment);
+
+                // Update order status
+                order.setStatus("CONFIRMED");
+                orderRepository.save(order);
+
+                logger.info("Payment verified successfully for order ID: {}", order.getId());
+
+                response.put("status", "success");
+                response.put("message", "eSewa payment verified successfully");
+                response.put("data", new OrderResponse(order));
+                return response;
+            } else {
+                logger.warn("Amount mismatch for transaction_uuid: {}. Stored: {}, Received: {}", 
+                           transactionUuid, payment.getAmount(), amount);
+                throw new IllegalStateException("Invalid transaction or amount mismatch");
+            }
+        } catch (Exception e) {
+            logger.error("Error verifying eSewa payment: {}", e.getMessage(), e);
+            response.put("status", "error");
+            response.put("message", "Failed to verify payment: " + e.getMessage());
+            return response;
         }
-        List<Order> orders = orderRepository.findByUser(user);
-        logger.debug("Fetched orders for userId {}: {}", userId, orders);
-        return orders;
+    }
+
+    @Transactional
+    public Order saveOrder(Order order) {
+        return orderRepository.save(order);
     }
 }

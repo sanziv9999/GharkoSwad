@@ -36,7 +36,7 @@ public class Payment {
 
     @Column(name = "payment_date", nullable = false)
     @NotNull(message = "Payment date cannot be null")
-    private LocalDateTime paymentDate;
+    private LocalDateTime paymentDate = LocalDateTime.now();
 
     @Column(name = "esewa_ref_id")
     private String esewaRefId;
@@ -45,17 +45,13 @@ public class Payment {
     private String failureReason;
 
     // Constructors
-    public Payment() {
-        this.paymentDate = LocalDateTime.now();
-        this.status = PaymentStatus.PENDING;
-    }
+    public Payment() {}
 
     public Payment(Order order, Double amount, String paymentMethod) {
         this.order = order;
         this.amount = amount;
         this.paymentMethod = paymentMethod;
         this.status = PaymentStatus.PENDING;
-        this.paymentDate = LocalDateTime.now();
     }
 
     // Getters and Setters
@@ -77,10 +73,4 @@ public class Payment {
     public void setEsewaRefId(String esewaRefId) { this.esewaRefId = esewaRefId; }
     public String getFailureReason() { return failureReason; }
     public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
-
-    @Override
-    public String toString() {
-        return String.format("Payment{id=%d, orderId=%d, amount=%.2f, status=%s, paymentMethod=%s, transactionId=%s, esewaRefId=%s, failureReason=%s}",
-                id, order.getId(), amount, status, paymentMethod, transactionId, esewaRefId, failureReason);
-    }
 }

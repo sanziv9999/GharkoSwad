@@ -18,9 +18,9 @@ public class PaymentService {
     private PaymentRepository paymentRepository;
 
     @Transactional
-    public Payment createPayment(Order order, Double amount, String paymentMethod) {
-        if (order == null) {
-            throw new IllegalArgumentException("Order cannot be null");
+    public Payment createPayment(Order order, Double amount, String paymentMethod, String transactionUuid) {
+        if (order == null || order.getId() == null) {
+            throw new IllegalArgumentException("Order must be persisted before creating payment");
         }
         if (amount == null || amount <= 0) {
             throw new IllegalArgumentException("Payment amount must be positive");
@@ -28,14 +28,18 @@ public class PaymentService {
         if (paymentMethod == null || paymentMethod.trim().isEmpty()) {
             throw new IllegalArgumentException("Payment method is required");
         }
-
         Payment payment = new Payment(order, amount, paymentMethod);
-        payment.setStatus(paymentMethod.equalsIgnoreCase("CASH_ON_DELIVERY") ? PaymentStatus.PLACED : PaymentStatus.PENDING);
-
+        payment.setTransactionId(transactionUuid);
+        
+        // Set initial status based on payment method
+        if ("ESEWA".equals(paymentMethod)) {
+            payment.setStatus(PaymentStatus.PENDING); // Will be updated after verification
+        } else if ("CASH_ON_DELIVERY".equals(paymentMethod)) {
+            payment.setStatus(PaymentStatus.PENDING); // Will be updated when delivered
+        }
+        
         logger.debug("Creating payment: {}", payment);
-        Payment savedPayment = paymentRepository.save(payment);
-        logger.debug("Saved payment: {}", savedPayment);
-        return savedPayment;
+        return paymentRepository.save(payment);
     }
 
     @Transactional
@@ -50,7 +54,6 @@ public class PaymentService {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found with ID: " + paymentId));
 
-        logger.debug("Updating payment status: paymentId={}, newStatus={}", paymentId, status);
         payment.setStatus(status);
         if (transactionId != null) {
             payment.setTransactionId(transactionId);
@@ -58,9 +61,7 @@ public class PaymentService {
         if (status == PaymentStatus.FAILED) {
             payment.setFailureReason("Payment processing failed");
         }
-        Payment updatedPayment = paymentRepository.save(payment);
-        logger.debug("Updated payment: {}", updatedPayment);
-        return updatedPayment;
+        return paymentRepository.save(payment);
     }
 
     @Transactional(readOnly = true)
@@ -68,19 +69,6 @@ public class PaymentService {
         if (order == null) {
             throw new IllegalArgumentException("Order cannot be null");
         }
-        Payment payment = paymentRepository.findByOrder(order);
-        if (payment == null) {
-            throw new IllegalArgumentException("No payment found for order ID: " + order.getId());
-        }
-        return payment;
-    }
-
-    @Transactional(readOnly = true)
-    public Payment findByOrderId(Long orderId) {
-        if (orderId == null) {
-            throw new IllegalArgumentException("Order ID cannot be null");
-        }
-        return paymentRepository.findByOrderId(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("No payment found for order ID: " + orderId));
+        return paymentRepository.findByOrder(order);
     }
 }
