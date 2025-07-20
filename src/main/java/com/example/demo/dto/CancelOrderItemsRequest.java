@@ -1,18 +1,17 @@
 package com.example.demo.dto;
 
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
-
-import java.util.List;
-
 public class CancelOrderItemsRequest {
-    @NotNull(message = "userId is required")
     private Long userId;
+    private Long orderId;
 
-    @NotEmpty(message = "foodOrderItemIds cannot be empty")
-    private List<Long> foodOrderItemIds;
+    public CancelOrderItemsRequest() {
+    }
 
-    // Getters and setters
+    public CancelOrderItemsRequest(Long userId, Long orderId) {
+        this.userId = userId;
+        this.orderId = orderId;
+    }
+
     public Long getUserId() {
         return userId;
     }
@@ -21,11 +20,19 @@ public class CancelOrderItemsRequest {
         this.userId = userId;
     }
 
-    public List<Long> getFoodOrderItemIds() {
-        return foodOrderItemIds;
+    public Long getOrderId() {
+        return orderId;
     }
 
-    public void setFoodOrderItemIds(List<Long> foodOrderItemIds) {
-        this.foodOrderItemIds = foodOrderItemIds;
+    public void setOrderId(Long orderId) {
+        this.orderId = orderId;
+    }
+
+    @Override
+    public String toString() {
+        return "CancelOrderItemsRequest{" +
+                "userId=" + userId +
+                ", orderId=" + orderId +
+                '}';
     }
 }

@@ -1,7 +1,6 @@
 package com.example.demo.restcontroller;
 
 import com.example.demo.dto.CancelOrderItemsRequest;
-
 import com.example.demo.dto.FoodItemDto;
 import com.example.demo.dto.OrderItemResponse;
 import com.example.demo.dto.OrderResponse;
@@ -23,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -93,35 +93,36 @@ public class OrderRestController {
         }
     }
 
-   
-    @PutMapping("/cancel-items")
-    public ResponseEntity<Map<String, Object>> cancelOrderItems(@RequestBody CancelOrderItemsRequest request) {
-        logger.info("Received cancel order items request: userId={}, foodOrderItemIds={}",
-                request.getUserId(), request.getFoodOrderItemIds());
+    @PutMapping("/cancel-order")
+    public ResponseEntity<Map<String, Object>> cancelOrder(@RequestBody CancelOrderItemsRequest request) {
+        logger.info("Received cancel order request: userId={}, orderId={}",
+                request.getUserId(), request.getOrderId());
         try {
-            if (request.getUserId() == null || request.getFoodOrderItemIds() == null || request.getFoodOrderItemIds().isEmpty()) {
-                throw new IllegalArgumentException("userId and foodOrderItemIds are required and cannot be empty");
+            if (request.getUserId() == null || request.getOrderId() == null) {
+                throw new IllegalArgumentException("userId and orderId are required");
             }
-            List<Long> cancelledOrderItemIds = orderService.cancelOrderItems(request.getUserId(), request.getFoodOrderItemIds());
-            logger.debug("Order items cancelled successfully: {}", cancelledOrderItemIds);
+            Order cancelledOrder = orderService.cancelOrder(request.getOrderId(), request.getUserId());
+            OrderResponse orderResponse = new OrderResponse(cancelledOrder);
+            enrichOrderItems(cancelledOrder, orderResponse);
+            logger.debug("Order cancelled successfully: {}", orderResponse);
 
             Map<String, Object> responseBody = new HashMap<>();
-            responseBody.put("data", cancelledOrderItemIds);
-            responseBody.put("message", "Order items cancelled successfully");
+            responseBody.put("data", orderResponse);
+            responseBody.put("message", "Order cancelled successfully");
             responseBody.put("status", "success");
             return ResponseEntity.ok(responseBody);
         } catch (IllegalArgumentException | IllegalStateException e) {
-            logger.warn("Error cancelling order items: {}", e.getMessage());
+            logger.warn("Error cancelling order: {}", e.getMessage());
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("data", null);
             errorResponse.put("message", e.getMessage());
             errorResponse.put("status", "error");
             return ResponseEntity.badRequest().body(errorResponse);
         } catch (Exception e) {
-            logger.error("Unexpected error cancelling order items: {}", e.getMessage());
+            logger.error("Unexpected error cancelling order: {}", e.getMessage());
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("data", null);
-            errorResponse.put("message", "Failed to cancel order items: " + e.getMessage());
+            errorResponse.put("message", "Failed to cancel order: " + e.getMessage());
             errorResponse.put("status", "error");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
@@ -132,13 +133,13 @@ public class OrderRestController {
         logger.info("Received request to fetch orders for userId={}", userId);
         try {
             List<Order> orders = orderService.getUserOrders(userId);
-            List<OrderResponse> response = orders.stream()
+            List<OrderResponse> response = orders != null ? orders.stream()
                     .map(order -> {
                         OrderResponse orderResponse = new OrderResponse(order);
                         enrichOrderItems(order, orderResponse);
                         return orderResponse;
                     })
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toList()) : Collections.emptyList();
             logger.debug("Fetched orders for userId {}: {}", userId, response);
 
             Map<String, Object> responseBody = new HashMap<>();
@@ -173,16 +174,16 @@ public class OrderRestController {
                 throw new IllegalArgumentException("userId is required");
             }
             List<Order> orders = orderService.findOrdersByUserIdAndStatus(userId, status);
-            List<OrderResponse> response = orders.stream()
+            List<OrderResponse> response = orders != null ? orders.stream()
                     .map(order -> {
                         OrderResponse orderResponse = new OrderResponse(order);
                         enrichOrderItems(order, orderResponse);
                         return orderResponse;
                     })
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toList()) : Collections.emptyList();
 
             Map<String, Object> responseBody = new HashMap<>();
-            if (orders.isEmpty()) {
+            if (response.isEmpty()) {
                 responseBody.put("data", response);
                 responseBody.put("message", "No orders found for userId " + userId + (status != null ? " with status " + status : ""));
                 responseBody.put("status", "success");
@@ -270,6 +271,96 @@ public class OrderRestController {
         }
     }
 
+    @PutMapping("/{orderId}/status")
+    public ResponseEntity<Map<String, Object>> updateOrderStatus(
+            @PathVariable Long orderId,
+            @RequestBody Map<String, Object> requestBody) {
+        logger.info("Received request to update order status for orderId={}", orderId);
+        try {
+            Long userId = requestBody.get("userId") != null ? ((Number) requestBody.get("userId")).longValue() : null;
+            String status = (String) requestBody.get("status");
+            if (userId == null) {
+                throw new IllegalArgumentException("userId is required in request body");
+            }
+            if (status == null || status.trim().isEmpty()) {
+                throw new IllegalArgumentException("status is required in request body");
+            }
+
+            Order updatedOrder = orderService.updateOrderStatus(orderId, userId, status);
+            OrderResponse orderResponse = new OrderResponse(updatedOrder);
+            enrichOrderItems(updatedOrder, orderResponse);
+            logger.debug("Order status updated to {} successfully: {}", status, orderResponse);
+
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("data", orderResponse);
+            responseBody.put("message", "Order status updated to " + status + " successfully");
+            responseBody.put("status", "success");
+            return ResponseEntity.ok(responseBody);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            logger.warn("Error updating order status: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.badRequest().body(errorResponse);
+        } catch (Exception e) {
+            logger.error("Unexpected error updating order status: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", "Failed to update order status: " + e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    @GetMapping("/chef/{userId}")
+    public ResponseEntity<Map<String, Object>> getOrdersByChefId(
+            @PathVariable Long userId,
+            @RequestParam(required = false) String status) {
+        logger.info("Received request to fetch orders for chefId={} with status={}", userId, status);
+        try {
+            if (userId == null) {
+                throw new IllegalArgumentException("chefId is required");
+            }
+            List<Order> orders = orderService.findOrdersByChefId(userId, status);
+            List<OrderResponse> response = orders != null ? orders.stream()
+                    .map(order -> {
+                        OrderResponse orderResponse = new OrderResponse(order);
+                        enrichOrderItems(order, orderResponse);
+                        return orderResponse;
+                    })
+                    .collect(Collectors.toList()) : Collections.emptyList();
+            logger.debug("Fetched orders for chefId {}: {}", userId, response);
+
+            Map<String, Object> responseBody = new HashMap<>();
+            if (response.isEmpty()) {
+                responseBody.put("data", response);
+                responseBody.put("message", "No orders found for chefId " + userId + (status != null ? " with status " + status : ""));
+                responseBody.put("status", "success");
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(responseBody);
+            }
+
+            responseBody.put("data", response);
+            responseBody.put("message", "Orders retrieved successfully");
+            responseBody.put("status", "success");
+            return ResponseEntity.ok(responseBody);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            logger.warn("Error fetching orders for chef: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.badRequest().body(errorResponse);
+        } catch (Exception e) {
+            logger.error("Unexpected error fetching orders for chef: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", "Failed to fetch orders: " + e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
     private void enrichOrderItems(Order order, OrderResponse orderResponse) {
         if (order.getOrderItems() != null) {
             List<OrderItemResponse> orderItemResponses = order.getOrderItems().stream()
@@ -283,10 +374,10 @@ public class OrderRestController {
                             foodItemDto.setId(item.getFoodItem().getId());
                             foodItemDto.setName("Unknown");
                         }
-                        return new OrderItemResponse(foodItemDto, item.getQuantity());
+                        return new OrderItemResponse(item.getId(), foodItemDto, item.getQuantity());
                     })
                     .collect(Collectors.toList());
-            orderResponse.setOrderItems(orderItemResponses); // This now matches the updated OrderResponse
+            orderResponse.setOrderItems(orderItemResponses);
         }
     }
 

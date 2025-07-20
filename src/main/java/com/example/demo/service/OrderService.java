@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 @Service
 public class OrderService {
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
-    private static final List<String> VALID_STATUSES = Arrays.asList("PLACED", "CONFIRMED", "CANCELLED");
+    private static final List<String> VALID_STATUSES = Arrays.asList("PLACED", "CONFIRMED", "PREPARING", "READY", "CANCELLED");
 
     @Autowired
     private OrderRepository orderRepository;
@@ -241,5 +241,66 @@ public class OrderService {
     @Transactional
     public Order saveOrder(Order order) {
         return orderRepository.save(order);
+    }
+
+    @Transactional
+    public Order updateOrderStatus(Long orderId, Long userId, String status) {
+        logger.info("Updating order status for orderId={} to status={} by userId={}", orderId, status, userId);
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+
+        User user = userService.findById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found: " + userId);
+        }
+        if (!"CHEF".equals(user.getRole())) {
+            throw new IllegalStateException("User must have CHEF role to update order status");
+        }
+        if (!VALID_STATUSES.contains(status.toUpperCase())) {
+            throw new IllegalArgumentException("Invalid status: " + status + ". Allowed values: " + VALID_STATUSES);
+        }
+
+        // Define valid state transitions
+        String currentStatus = order.getStatus();
+        if ("PLACED".equals(currentStatus) && !"CONFIRMED".equals(status.toUpperCase())) {
+            throw new IllegalStateException("Order in PLACED status can only transition to CONFIRMED");
+        }
+        if ("CONFIRMED".equals(currentStatus) && !"PREPARING".equals(status.toUpperCase())) {
+            throw new IllegalStateException("Order in CONFIRMED status can only transition to PREPARING");
+        }
+        if ("PREPARING".equals(currentStatus) && !"READY".equals(status.toUpperCase())) {
+            throw new IllegalStateException("Order in PREPARING status can only transition to READY");
+        }
+        if ("READY".equals(currentStatus) || "CANCELLED".equals(currentStatus)) {
+            throw new IllegalStateException("Order in " + currentStatus + " status cannot be updated");
+        }
+
+        order.setStatus(status.toUpperCase());
+        return orderRepository.save(order);
+    }
+
+    public List<Order> findOrdersByChefId(Long chefId) {
+        return findOrdersByChefId(chefId, null);
+    }
+
+    public List<Order> findOrdersByChefId(Long chefId, String status) {
+        logger.info("Fetching orders for chefId={} with status={}", chefId, status);
+        if (chefId == null) {
+            throw new IllegalArgumentException("chefId is required");
+        }
+        User chef = userService.findById(chefId);
+        if (chef == null) {
+            throw new IllegalArgumentException("Chef not found: " + chefId);
+        }
+        if (!"CHEF".equals(chef.getRole())) {
+            throw new IllegalStateException("User must have CHEF role to fetch orders");
+        }
+        if (status != null && !VALID_STATUSES.contains(status.toUpperCase())) {
+            throw new IllegalArgumentException("Invalid status: " + status + ". Allowed values: " + VALID_STATUSES);
+        }
+        if (status == null) {
+            return orderRepository.findOrdersByFoodItemUserId(chefId);
+        }
+        return orderRepository.findOrdersByFoodItemUserIdAndStatus(chefId, status.toUpperCase());
     }
 }

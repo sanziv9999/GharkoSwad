@@ -1,15 +1,25 @@
 package com.example.demo.dto;
 
 public class OrderItemResponse {
+    private Long orderItemId; // Added orderItemId field
     private FoodItemDto foodItem;
     private Integer quantity;
 
     public OrderItemResponse() {
     }
 
-    public OrderItemResponse(FoodItemDto foodItem, Integer quantity) {
+    public OrderItemResponse(Long orderItemId, FoodItemDto foodItem, Integer quantity) {
+        this.orderItemId = orderItemId;
         this.foodItem = foodItem;
         this.quantity = quantity != null ? quantity : 0;
+    }
+
+    public Long getOrderItemId() {
+        return orderItemId;
+    }
+
+    public void setOrderItemId(Long orderItemId) {
+        this.orderItemId = orderItemId;
     }
 
     public FoodItemDto getFoodItem() {
@@ -31,7 +41,8 @@ public class OrderItemResponse {
     @Override
     public String toString() {
         return "OrderItemResponse{" +
-                "foodItem=" + foodItem +
+                "orderItemId=" + orderItemId +
+                ", foodItem=" + foodItem +
                 ", quantity=" + quantity +
                 '}';
     }

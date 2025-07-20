@@ -2,8 +2,10 @@ package com.example.demo.model;
 
 public enum OrderStatus {
     PLACED,
-    PROCESSING,
-    COMPLETED,
+    CONFIRMED,
+    PREPARING,
+    READY,
+    PICKED_UP,
     CANCELLED,
     DELIVERED
 }
