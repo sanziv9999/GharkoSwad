@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, MapPin, Phone, Package, Truck, Home, CheckCircle, Calendar, DollarSign, ShoppingBag } from 'lucide-react';
+import { Clock, MapPin, Phone, Package, Truck, Home, CheckCircle, Calendar, DollarSign, ShoppingBag, X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../api/apiService';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Banner from '../components/ui/Banner';
+import Modal from '../components/ui/Modal';
 import imagePathService from '../services/imageLocation/imagePath';
 
 const MyOrders = () => {
@@ -16,6 +17,10 @@ const MyOrders = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [banner, setBanner] = useState({ show: false, type: '', message: '' });
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -88,6 +93,75 @@ const MyOrders = () => {
   const showBanner = (type, message) => {
     setBanner({ show: true, type, message });
     setTimeout(() => setBanner({ show: false, type: '', message: '' }), 4000);
+  };
+
+  const handleCancelOrder = (order) => {
+    if (!order?.orderItems || order.orderItems.length === 0) {
+      showBanner('error', 'No order items found to cancel');
+      return;
+    }
+    
+    setSelectedOrder(order);
+    // Initialize with all items selected - use the orderItem.id field
+    setSelectedItems(order.orderItems.map(item => item.id));
+    setShowCancelModal(true);
+  };
+
+  const handleItemSelection = (itemId) => {
+    setSelectedItems(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!selectedOrder) {
+      showBanner('error', 'Please select an order to cancel');
+      return;
+    }
+
+    try {
+      setCancelling(true);
+      const response = await apiService.cancelOrder(user.id, selectedOrder.orderId);
+      
+      if (response.status === 'success') {
+        showBanner('success', response.message || 'Order cancelled successfully');
+        
+        // Update the orders list to reflect cancelled order
+        setOrders(prev => prev.map(order => {
+          if (order.orderId === selectedOrder.orderId) {
+            return {
+              ...order,
+              status: 'CANCELLED'
+            };
+          }
+          return order;
+        }));
+        
+        setShowCancelModal(false);
+        setSelectedItems([]);
+        setSelectedOrder(null);
+        
+        // Refresh orders to get updated status
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        showBanner('error', response.message || 'Failed to cancel order');
+      }
+    } catch (err) {
+      console.error('Error cancelling order:', err);
+      showBanner('error', err.message || 'Failed to cancel order');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const canCancelOrder = (order) => {
+    // Only allow cancellation for certain statuses
+    const cancellableStatuses = ['PLACED', 'CONFIRMED', 'PREPARING'];
+    return cancellableStatuses.includes(order?.status);
   };
 
   if (loading) {
@@ -219,7 +293,7 @@ const MyOrders = () => {
                       {order.orderItems?.map((orderItem, index) => {
                         const foodItem = orderItem.foodItem;
                         return (
-                          <div key={index} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+                          <div key={orderItem.orderItemId || index} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
                             <img
                               src={imagePathService.getImageUrl(foodItem.imagePath)}
                               alt={foodItem.name}
@@ -244,7 +318,7 @@ const MyOrders = () => {
                               {foodItem.tags && foodItem.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-2">
                                   {foodItem.tags.map((tag, tagIndex) => (
-                                    <Badge key={tagIndex} variant="primary" size="sm">
+                                    <Badge key={`${orderItem.orderItemId}-${tag}-${tagIndex}`} variant="primary" size="sm">
                                       {tag}
                                     </Badge>
                                   ))}
@@ -290,6 +364,16 @@ const MyOrders = () => {
                           Track Order
                         </Button>
                       )}
+                      {canCancelOrder(order) && (
+                        <Button
+                          variant="outline"
+                          onClick={() => handleCancelOrder(order)}
+                          className="flex-1 text-red-600 border-red-600 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel Order
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         onClick={() => navigate('/menu')}
@@ -305,6 +389,119 @@ const MyOrders = () => {
             })}
           </div>
         )}
+
+        {/* Cancel Order Modal */}
+        <Modal
+          isOpen={showCancelModal}
+          onClose={() => setShowCancelModal(false)}
+          title="Cancel Order Items"
+        >
+          <div className="p-6">
+            <div className="mb-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <AlertTriangle className="w-6 h-6 text-red-500" />
+                <h3 className="text-lg font-semibold text-gray-900">Select Items to Cancel</h3>
+              </div>
+              <p className="text-gray-600">
+                Choose the items you want to cancel from your order. Cancelled items cannot be restored.
+              </p>
+            </div>
+
+            <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
+              {selectedOrder?.orderItems?.map((orderItem, index) => {
+                const foodItem = orderItem.foodItem;
+                const isSelected = selectedItems.includes(orderItem.id);
+                
+                return (
+                  <div 
+                    key={orderItem.orderItemId || orderItem.id || `item-${index}`}
+                    className={`flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                      isSelected 
+                        ? 'border-red-500 bg-red-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => handleItemSelection(orderItem.id)}
+                  >
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                      isSelected 
+                        ? 'border-red-500 bg-red-500' 
+                        : 'border-gray-300'
+                    }`}>
+                      {isSelected && (
+                        <CheckCircle className="w-3 h-3 text-white" />
+                      )}
+                    </div>
+                    
+                    <img
+                      src={imagePathService.getImageUrl(foodItem.imagePath)}
+                      alt={foodItem.name}
+                      className="w-12 h-12 rounded-lg object-cover"
+                      onError={(e) => { e.target.src = '/placeholder-image.jpg'; }}
+                    />
+                    
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">{foodItem.name}</h4>
+                      <p className="text-sm text-gray-600">Qty: {orderItem.quantity}</p>
+                    </div>
+                    
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900">₹{foodItem.price?.toFixed(2)}</p>
+                      <p className="text-sm text-primary-600">
+                        ₹{(foodItem.price * orderItem.quantity)?.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-sm text-gray-600">
+                {selectedItems.length} of {selectedOrder?.orderItems?.length} items selected
+              </span>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedItems(selectedOrder?.orderItems?.map(item => item.id) || [])}
+                  className="text-sm"
+                >
+                  Select All
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedItems([])}
+                  className="text-sm"
+                >
+                  Clear All
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowCancelModal(false)}
+                disabled={cancelling}
+              >
+                Keep Order
+              </Button>
+              <Button
+                onClick={handleConfirmCancel}
+                disabled={cancelling || selectedItems.length === 0}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {cancelling ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Cancelling...</span>
+                  </div>
+                ) : (
+                  `Cancel ${selectedItems.length} Item${selectedItems.length !== 1 ? 's' : ''}`
+                )}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </div>
     </div>
   );

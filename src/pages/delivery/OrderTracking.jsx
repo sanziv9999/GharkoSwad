@@ -15,7 +15,9 @@ import {
   Timer,
   User,
   Calendar,
-  DollarSign
+  DollarSign,
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { apiService } from '../../api/apiService';
@@ -23,6 +25,7 @@ import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import Banner from '../../components/ui/Banner';
+import Modal from '../../components/ui/Modal';
 import imagePathService from '../../services/imageLocation/imagePath';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -67,6 +70,9 @@ const OrderTracking = () => {
   const [driverLocation, setDriverLocation] = useState(null);
   const [estimatedTime, setEstimatedTime] = useState('15-20 min');
   const [currentStep, setCurrentStep] = useState(0);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [cancelling, setCancelling] = useState(false);
   
   const intervalRef = useRef(null);
   const mapRef = useRef(null);
@@ -331,6 +337,71 @@ const OrderTracking = () => {
     setTimeout(() => setBanner({ show: false, type: '', message: '' }), 4000);
   };
 
+  const handleCancelOrder = () => {
+    if (!order?.orderItems || order.orderItems.length === 0) {
+      showBanner('error', 'No order items found to cancel');
+      return;
+    }
+    
+    // Initialize with all items selected - use the orderItem.id field
+    setSelectedItems(order.orderItems.map(item => item.id));
+    setShowCancelModal(true);
+  };
+
+  const handleItemSelection = (itemId) => {
+    setSelectedItems(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const handleConfirmCancel = async () => {
+    if (selectedItems.length === 0) {
+      showBanner('error', 'Please select at least one item to cancel');
+      return;
+    }
+
+    try {
+      setCancelling(true);
+      const response = await apiService.cancelOrder(user.id, selectedItems);
+      
+      if (response.status === 'success') {
+        showBanner('success', response.message || 'Order items cancelled successfully');
+        
+        // Update the order to reflect cancelled items
+        setOrder(prev => ({
+          ...prev,
+          orderItems: prev.orderItems.filter(item => !selectedItems.includes(item.id))
+        }));
+        
+        setShowCancelModal(false);
+        setSelectedItems([]);
+        
+        // If all items are cancelled, redirect to orders page
+        const remainingItems = order.orderItems.filter(item => !selectedItems.includes(item.id));
+        if (remainingItems.length === 0) {
+          setTimeout(() => {
+            navigate('/my-orders');
+          }, 2000);
+        }
+      } else {
+        showBanner('error', response.message || 'Failed to cancel order items');
+      }
+    } catch (err) {
+      console.error('Error cancelling order:', err);
+      showBanner('error', err.message || 'Failed to cancel order items');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const canCancelOrder = () => {
+    // Only allow cancellation for certain statuses
+    const cancellableStatuses = ['PLACED', 'CONFIRMED', 'PREPARING'];
+    return cancellableStatuses.includes(order?.status);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8 flex items-center justify-center">
@@ -390,6 +461,15 @@ const OrderTracking = () => {
                 <StatusIcon className="w-4 h-4" />
                 <span>{statusInfo.label}</span>
               </Badge>
+              {canCancelOrder() && (
+                <Button 
+                  variant="outline" 
+                  onClick={handleCancelOrder}
+                  className="text-red-600 border-red-600 hover:bg-red-50"
+                >
+                  Cancel Order
+                </Button>
+              )}
               <Button variant="outline" onClick={() => navigate('/my-orders')}>
                 Back to Orders
               </Button>
@@ -656,6 +736,119 @@ const OrderTracking = () => {
           </div>
         </div>
       </div>
+
+      {/* Cancel Order Modal */}
+      <Modal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        title="Cancel Order Items"
+      >
+        <div className="p-6">
+          <div className="mb-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-500" />
+              <h3 className="text-lg font-semibold text-gray-900">Select Items to Cancel</h3>
+            </div>
+            <p className="text-gray-600">
+              Choose the items you want to cancel from your order. Cancelled items cannot be restored.
+            </p>
+          </div>
+
+          <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
+            {order?.orderItems?.map((orderItem) => {
+              const foodItem = orderItem.foodItem;
+              const isSelected = selectedItems.includes(orderItem.id);
+              
+              return (
+                <div 
+                  key={orderItem.id}
+                  className={`flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                    isSelected 
+                      ? 'border-red-500 bg-red-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => handleItemSelection(orderItem.id)}
+                >
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    isSelected 
+                      ? 'border-red-500 bg-red-500' 
+                      : 'border-gray-300'
+                  }`}>
+                    {isSelected && (
+                      <CheckCircle className="w-3 h-3 text-white" />
+                    )}
+                  </div>
+                  
+                  <img
+                    src={imagePathService.getImageUrl(foodItem.imagePath)}
+                    alt={foodItem.name}
+                    className="w-12 h-12 rounded-lg object-cover"
+                    onError={(e) => { e.target.src = '/placeholder-image.jpg'; }}
+                  />
+                  
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900">{foodItem.name}</h4>
+                    <p className="text-sm text-gray-600">Qty: {orderItem.quantity}</p>
+                  </div>
+                  
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-900">₹{foodItem.price?.toFixed(2)}</p>
+                    <p className="text-sm text-primary-600">
+                      ₹{(foodItem.price * orderItem.quantity)?.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between mb-6">
+            <span className="text-sm text-gray-600">
+              {selectedItems.length} of {order?.orderItems?.length} items selected
+            </span>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => setSelectedItems(order?.orderItems?.map(item => item.id) || [])}
+                className="text-sm"
+              >
+                Select All
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setSelectedItems([])}
+                className="text-sm"
+              >
+                Clear All
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelModal(false)}
+              disabled={cancelling}
+            >
+              Keep Order
+            </Button>
+            <Button
+              onClick={handleConfirmCancel}
+              disabled={cancelling || selectedItems.length === 0}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {cancelling ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Cancelling...</span>
+                </div>
+              ) : (
+                `Cancel ${selectedItems.length} Item${selectedItems.length !== 1 ? 's' : ''}`
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

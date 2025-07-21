@@ -311,4 +311,128 @@ export const apiService = {
     console.log('Verification response:', response);
     return response; // Return full response object
   },
+
+  async cancelOrder(userId, orderId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token');
+    console.log('Cancelling order:', { userId, orderId });
+    
+    // Validate input parameters
+    if (!userId || !orderId) {
+      throw new Error('userId and orderId are required');
+    }
+    
+    const requestBody = {
+      userId: parseInt(userId, 10),
+      orderId: parseInt(orderId, 10)
+    };
+    
+    console.log('Sending cancel order request with body:', requestBody);
+    const response = await this.put('/orders/cancel-order', requestBody, tokenFromStorage);
+    console.log('Cancel order response:', response);
+    return response; // Return full response object
+  },
+
+  async getOrdersByUserId(userId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    console.log('Fetching orders for user:', userId);
+    
+    if (!userId) {
+      throw new Error('userId is required');
+    }
+    
+    const response = await this.get(`/orders/user/${userId}/status`, tokenFromStorage);
+    console.log('Orders retrieved:', response);
+    return response;
+  },
+
+  async getOrdersByChefId(chefId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    console.log('Fetching orders for chef:', chefId);
+    
+    if (!chefId) {
+      throw new Error('chefId is required');
+    }
+    
+    const response = await this.get(`/orders/chef/${chefId}`, tokenFromStorage);
+    console.log('Chef orders retrieved:', response);
+    return response;
+  },
+
+  async updateOrderStatus(orderId, status, userId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    console.log('Updating order status:', { orderId, status, userId });
+    
+    if (!orderId || !status || !userId) {
+      throw new Error('orderId, status, and userId are required');
+    }
+    
+    const requestBody = {
+      userId: parseInt(userId, 10),
+      status: status
+    };
+    
+    console.log('Sending order status update request with body:', requestBody);
+    const response = await this.put(`/orders/${orderId}/status`, requestBody, tokenFromStorage);
+    console.log('Order status updated:', response);
+    return response;
+  },
+
+  // Delivery-specific API methods
+  async getReadyOrders(token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    console.log('Fetching orders with READY status for delivery pickup');
+    
+    const response = await this.get('/orders?status=READY', tokenFromStorage);
+    console.log('Ready orders retrieved:', response);
+    return response;
+  },
+
+  async getDeliveryOrders(deliveryId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    console.log('Fetching orders for delivery person:', deliveryId);
+    
+    if (!deliveryId) {
+      throw new Error('deliveryId is required');
+    }
+    
+    const response = await this.get(`/orders/delivery/${deliveryId}`, tokenFromStorage);
+    console.log('Delivery orders retrieved:', response);
+    return response;
+  },
+
+  async assignOrderToDelivery(orderId, deliveryId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    console.log('Assigning order to delivery person:', { orderId, deliveryId });
+    
+    if (!orderId || !deliveryId) {
+      throw new Error('orderId and deliveryId are required');
+    }
+    
+    const requestBody = {
+      deliveryId: parseInt(deliveryId, 10)
+    };
+    
+    const response = await this.put(`/orders/${orderId}/assign-delivery`, requestBody, tokenFromStorage);
+    console.log('Order assignment response:', response);
+    return response;
+  },
+
+  async updateDeliveryLocation(deliveryId, latitude, longitude, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    console.log('Updating delivery location:', { deliveryId, latitude, longitude });
+    
+    if (!deliveryId || !latitude || !longitude) {
+      throw new Error('deliveryId, latitude, and longitude are required');
+    }
+    
+    const requestBody = {
+      latitude: parseFloat(latitude),
+      longitude: parseFloat(longitude),
+      timestamp: new Date().toISOString()
+    };
+    
+    const response = await this.put(`/delivery/${deliveryId}/location`, requestBody, tokenFromStorage);
+    console.log('Location update response:', response);
+    return response;
+  }
 };

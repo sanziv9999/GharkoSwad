@@ -84,6 +84,29 @@ const ProtectedRoute = ({ children, allowedRole }) => {
   return children;
 };
 
+// Layout wrapper component that conditionally shows Header/Footer
+const LayoutWrapper = ({ children }) => {
+  const location = useLocation();
+  
+  // Routes that should not have Header/Footer (chef and delivery dashboards)
+  const dashboardRoutes = ['/chef-dashboard', '/delivery-dashboard'];
+  const isDashboardRoute = dashboardRoutes.includes(location.pathname);
+  
+  if (isDashboardRoute) {
+    // Return just the content without Header/Footer for dashboard routes
+    return <div className="min-h-screen bg-gray-50">{children}</div>;
+  }
+  
+  // Return content with Header/Footer for all other routes
+  return (
+    <div className="min-h-screen bg-white flex flex-col">
+      <Header />
+      <main className="flex-1">{children}</main>
+      <Footer />
+    </div>
+  );
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -91,56 +114,52 @@ function App() {
         <OrderProvider>
           <Router>
             <ErrorBoundary>
-              <div className="min-h-screen bg-white flex flex-col">
-                <Header />
-                <main className="flex-1">
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/menu" element={<Menu />} />
-                    <Route path="/stores" element={<Stores />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/signup" element={<Signup />} />
-                    <Route path="/forgot-password" element={<ForgotPassword />} />
-                    <Route path="/otp" element={<OTPVerification />} />
-                    <Route path="/reset-password" element={<ResetPassword />} />
-                    <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
-                    <Route path="/checkout" element={<Checkout />} />
-                    <Route path="/offers" element={<Offers />} />
-                    <Route path="/feed" element={<Feed />} />
-                    <Route path="/payment-success" element={<PaymentSuccess />} />
-                    <Route path="/payment-failure" element={<PaymentFailure />} />
-                    <Route path="/order-success" element={<OrderSuccess />} />
-                    <Route path="/my-orders" element={<MyOrders />} />
-                    <Route path='/delivery-dashboard' element={<DeliveryDashboard/>}/>
-                    <Route
-                      path="/dashboard"
-                      element={
-                        <ProtectedRoute allowedRole={null}>
-                          <Dashboard />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/chef-dashboard"
-                      element={
-                        <ProtectedRoute allowedRole="CHEF">
-                          <ChefDashboard />
-                        </ProtectedRoute>
-                      }
-                    />
-                    {/* <Route
-                      path="/delivery-dashboard"
-                      element={
-                        <ProtectedRoute allowedRole="DELIVERY">
-                          <DeliveryDashboard />
-                        </ProtectedRoute>
-                      }
-                    /> */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                  </Routes>
-                </main>
-                <Footer />
-              </div>
+              <LayoutWrapper>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/menu" element={<Menu />} />
+                  <Route path="/stores" element={<Stores />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/otp" element={<OTPVerification />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
+                  <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/offers" element={<Offers />} />
+                  <Route path="/feed" element={<Feed />} />
+                  <Route path="/payment-success" element={<PaymentSuccess />} />
+                  <Route path="/payment-failure" element={<PaymentFailure />} />
+                  <Route path="/order-success" element={<OrderSuccess />} />
+                  <Route path="/my-orders" element={<MyOrders />} />
+                  <Route path='/delivery-dashboard' element={<DeliveryDashboard/>}/>
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <ProtectedRoute allowedRole={null}>
+                        <Dashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/chef-dashboard"
+                    element={
+                      <ProtectedRoute allowedRole="CHEF">
+                        <ChefDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* <Route
+                    path="/delivery-dashboard"
+                    element={
+                      <ProtectedRoute allowedRole="DELIVERY">
+                        <DeliveryDashboard />
+                      </ProtectedRoute>
+                    }
+                  /> */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </LayoutWrapper>
             </ErrorBoundary>
           </Router>
         </OrderProvider>
