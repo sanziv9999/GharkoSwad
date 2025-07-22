@@ -378,25 +378,33 @@ export const apiService = {
   },
 
   // Delivery-specific API methods
-  async getReadyOrders(token = null) {
+  async getReadyOrders(userId, token = null) {
     const tokenFromStorage = localStorage.getItem('token') || token;
-    console.log('Fetching orders with READY status for delivery pickup');
-    
-    const response = await this.get('/orders?status=READY', tokenFromStorage);
-    console.log('Ready orders retrieved:', response);
+    if (!userId) throw new Error('userId is required');
+    const response = await this.get(`/orders/delivery/${userId}/ready`, tokenFromStorage);
     return response;
   },
 
-  async getDeliveryOrders(deliveryId, token = null) {
+  async getDeliveryOrders(userId, token = null) {
     const tokenFromStorage = localStorage.getItem('token') || token;
-    console.log('Fetching orders for delivery person:', deliveryId);
-    
-    if (!deliveryId) {
-      throw new Error('deliveryId is required');
-    }
-    
-    const response = await this.get(`/orders/delivery/${deliveryId}`, tokenFromStorage);
-    console.log('Delivery orders retrieved:', response);
+    if (!userId) throw new Error('userId is required');
+    const response = await this.get(`/orders/delivery/${userId}/status?status=PICKED_UP`, tokenFromStorage);
+    return response;
+  },
+
+  async updateOrderStatus(orderId, status, userId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    if (!orderId || !status || !userId) throw new Error('orderId, status, and userId are required');
+    const requestBody = { userId: parseInt(userId, 10), status };
+    const response = await this.put(`/orders/${orderId}/delivery-status`, requestBody, tokenFromStorage);
+    return response;
+  },
+
+  async updatePaymentStatus(orderId, userId, paymentStatus, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    if (!orderId || !userId || !paymentStatus) throw new Error('orderId, userId, and paymentStatus are required');
+    const requestBody = { userId: parseInt(userId, 10), paymentStatus };
+    const response = await this.put(`/orders/${orderId}/payment-status`, requestBody, tokenFromStorage);
     return response;
   },
 

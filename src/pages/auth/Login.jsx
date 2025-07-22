@@ -25,9 +25,15 @@ const Login = () => {
     if (storedUser && storedToken) {
       try {
         const user = JSON.parse(storedUser);
-        if (user.role === 'CHEF' || user.role === 'USER') {
+        if (user.role === 'CHEF' || user.role === 'USER' || user.role === 'DELIVERY') {
           login(user, storedToken); // Update AuthContext
-          navigate(user.role === 'CHEF' ? '/chef-dashboard' : '/menu');
+          if (user.role === 'CHEF') {
+            navigate('/chef-dashboard');
+          } else if (user.role === 'DELIVERY') {
+            navigate('/delivery-dashboard');
+          } else {
+            navigate('/menu');
+          }
         }
       } catch (err) {
         console.error('Invalid user data in localStorage:', err);
@@ -67,7 +73,13 @@ const Login = () => {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       login(userData, token); // Use AuthContext login
-      navigate(user.role === 'CHEF' ? '/chef-dashboard' : '/menu');
+      if (user.role === 'CHEF') {
+        navigate('/chef-dashboard');
+      } else if (user.role === 'DELIVERY') {
+        navigate('/delivery-dashboard');
+      } else {
+        navigate('/menu');
+      }
     } catch (err) {
       console.error('Login error:', err);
       setError(err.message || 'Login failed. Please check your network or credentials.');

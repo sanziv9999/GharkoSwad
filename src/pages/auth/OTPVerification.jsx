@@ -79,7 +79,13 @@ const OTPVerification = () => {
       setUser(userData);
 
       // Redirect based on role
-      navigate(user.role === 'CHEF' ? '/dashboard' : '/menu');
+      if (user.role === 'CHEF') {
+        navigate('/dashboard');
+      } else if (user.role === 'DELIVERY') {
+        navigate('/delivery-dashboard');
+      } else {
+        navigate('/menu');
+      }
     } catch (err) {
       setError(err.message || 'OTP verification failed. Please try again.');
     } finally {

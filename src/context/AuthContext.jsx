@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
     if (storedUser && storedToken) {
       try {
         const parsedUser = JSON.parse(storedUser);
-        if (parsedUser.role === 'USER' || parsedUser.role === 'CHEF') {
+        if (parsedUser.role === 'USER' || parsedUser.role === 'CHEF' || parsedUser.role === 'DELIVERY') {
           setUser(parsedUser);
           setToken(storedToken);
         } else {
