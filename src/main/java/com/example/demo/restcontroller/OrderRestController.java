@@ -1,3 +1,4 @@
+
 package com.example.demo.restcontroller;
 
 import com.example.demo.dto.CancelOrderItemsRequest;
@@ -12,6 +13,7 @@ import com.example.demo.model.Order;
 import com.example.demo.model.OrderItem;
 import com.example.demo.model.Payment;
 import com.example.demo.model.PaymentStatus;
+import com.example.demo.model.User;
 import com.example.demo.service.FoodItemService;
 import com.example.demo.service.OrderService;
 import org.slf4j.Logger;
@@ -211,71 +213,106 @@ public class OrderRestController {
         }
     }
 
-    @PostMapping("/verify-esewa")
-    public ResponseEntity<Map<String, Object>> verifyEsewaPayment(@RequestBody VerifyEsewaRequest request) {
-        logger.info("Received eSewa verification request: transactionUuid={}, amount={}",
-                request.getTransaction_uuid(), request.getAmount());
+    @GetMapping("/delivery/{userId}/ready")
+    public ResponseEntity<Map<String, Object>> getReadyOrdersForDelivery(@PathVariable Long userId) {
+        logger.info("Received request to fetch READY orders for delivery userId={}", userId);
         try {
-            if (request.getTransaction_uuid() == null || request.getAmount() == null) {
-                throw new IllegalArgumentException("transactionUuid and amount are required");
+            if (userId == null) {
+                throw new IllegalArgumentException("userId is required");
             }
+            List<Order> orders = orderService.findReadyOrdersForDelivery(userId);
+            List<OrderResponse> response = orders != null ? orders.stream()
+                    .map(order -> {
+                        OrderResponse orderResponse = new OrderResponse(order);
+                        enrichOrderItems(order, orderResponse);
+                        return orderResponse;
+                    })
+                    .collect(Collectors.toList()) : Collections.emptyList();
 
-            Order order = orderService.findOrderByTransactionUuid(request.getTransaction_uuid());
-            logger.debug("Found order: {}", order);
-            if (order == null) {
-                throw new IllegalStateException("Order not found for transaction UUID: " + request.getTransaction_uuid());
-            }
-
-            Payment payment = order.getPayment();
-            logger.debug("Found payment: {}", payment);
-            if (payment == null) {
-                logger.warn("No payment found for order ID: {}", order.getId());
-                throw new IllegalStateException("No payment associated with the order");
-            }
-
-            logger.debug("Stored amount: {}, Received amount: {}", payment.getAmount(), request.getAmount());
-            if (Double.compare(payment.getAmount(), request.getAmount()) == 0) {
-                payment.setStatus(PaymentStatus.COMPLETED);
-                payment.setEsewaRefId(request.getTransaction_uuid());
-                order.setStatus("CONFIRMED");
-
-                order = orderService.saveOrder(order);
-                OrderResponse orderResponse = new OrderResponse(order);
-                enrichOrderItems(order, orderResponse);
-                logger.info("Payment verified and status updated to COMPLETED for order ID: {}", order.getId());
-
-                Map<String, Object> responseBody = new HashMap<>();
-                responseBody.put("data", orderResponse);
-                responseBody.put("message", "eSewa payment verified successfully");
+            Map<String, Object> responseBody = new HashMap<>();
+            if (response.isEmpty()) {
+                responseBody.put("data", response);
+                responseBody.put("message", "No READY orders found for delivery userId " + userId);
                 responseBody.put("status", "success");
-                return ResponseEntity.ok(responseBody);
-            } else {
-                logger.warn("Amount mismatch: Stored amount: {}, Received amount: {}", 
-                           payment.getAmount(), request.getAmount());
-                throw new IllegalStateException("Invalid transaction or amount mismatch");
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(responseBody);
             }
+
+            responseBody.put("data", response);
+            responseBody.put("message", "READY orders retrieved successfully");
+            responseBody.put("status", "success");
+            return ResponseEntity.ok(responseBody);
         } catch (IllegalArgumentException | IllegalStateException e) {
-            logger.warn("Error verifying eSewa payment: {}", e.getMessage());
+            logger.warn("Error fetching READY orders: {}", e.getMessage());
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("data", null);
             errorResponse.put("message", e.getMessage());
             errorResponse.put("status", "error");
             return ResponseEntity.badRequest().body(errorResponse);
         } catch (Exception e) {
-            logger.error("Unexpected error verifying eSewa payment: {}", e.getMessage(), e);
+            logger.error("Unexpected error fetching READY orders: {}", e.getMessage());
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("data", null);
-            errorResponse.put("message", "Failed to verify eSewa payment: " + e.getMessage());
+            errorResponse.put("message", "Failed to fetch READY orders: " + e.getMessage());
             errorResponse.put("status", "error");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 
-    @PutMapping("/{orderId}/status")
-    public ResponseEntity<Map<String, Object>> updateOrderStatus(
+    @GetMapping("/delivery/{userId}/status")
+    public ResponseEntity<Map<String, Object>> getDeliveryOrdersByStatus(
+            @PathVariable Long userId,
+            @RequestParam String status) {
+        logger.info("Received request to fetch orders for delivery userId={} with status={}", userId, status);
+        try {
+            if (userId == null) {
+                throw new IllegalArgumentException("userId is required");
+            }
+            if (status == null || status.trim().isEmpty()) {
+                throw new IllegalArgumentException("status is required");
+            }
+            List<Order> orders = orderService.findDeliveryOrdersByStatus(userId, status);
+            List<OrderResponse> response = orders != null ? orders.stream()
+                    .map(order -> {
+                        OrderResponse orderResponse = new OrderResponse(order);
+                        enrichOrderItems(order, orderResponse);
+                        return orderResponse;
+                    })
+                    .collect(Collectors.toList()) : Collections.emptyList();
+
+            Map<String, Object> responseBody = new HashMap<>();
+            if (response.isEmpty()) {
+                responseBody.put("data", response);
+                responseBody.put("message", "No orders found for delivery userId " + userId + " with status " + status);
+                responseBody.put("status", "success");
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(responseBody);
+            }
+
+            responseBody.put("data", response);
+            responseBody.put("message", "Orders retrieved successfully");
+            responseBody.put("status", "success");
+            return ResponseEntity.ok(responseBody);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            logger.warn("Error fetching delivery orders: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.badRequest().body(errorResponse);
+        } catch (Exception e) {
+            logger.error("Unexpected error fetching delivery orders: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", "Failed to fetch delivery orders: " + e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    @PutMapping("/{orderId}/delivery-status")
+    public ResponseEntity<Map<String, Object>> updateDeliveryStatus(
             @PathVariable Long orderId,
             @RequestBody Map<String, Object> requestBody) {
-        logger.info("Received request to update order status for orderId={}", orderId);
+        logger.info("Received request to update delivery status for orderId={}", orderId);
         try {
             Long userId = requestBody.get("userId") != null ? ((Number) requestBody.get("userId")).longValue() : null;
             String status = (String) requestBody.get("status");
@@ -286,28 +323,70 @@ public class OrderRestController {
                 throw new IllegalArgumentException("status is required in request body");
             }
 
-            Order updatedOrder = orderService.updateOrderStatus(orderId, userId, status);
+            Order updatedOrder = orderService.updateDeliveryStatus(orderId, userId, status);
             OrderResponse orderResponse = new OrderResponse(updatedOrder);
             enrichOrderItems(updatedOrder, orderResponse);
-            logger.debug("Order status updated to {} successfully: {}", status, orderResponse);
+            logger.debug("Delivery status updated to {} successfully: {}", status, orderResponse);
 
             Map<String, Object> responseBody = new HashMap<>();
             responseBody.put("data", orderResponse);
-            responseBody.put("message", "Order status updated to " + status + " successfully");
+            responseBody.put("message", "Delivery status updated to " + status + " successfully");
             responseBody.put("status", "success");
             return ResponseEntity.ok(responseBody);
         } catch (IllegalArgumentException | IllegalStateException e) {
-            logger.warn("Error updating order status: {}", e.getMessage());
+            logger.warn("Error updating delivery status: {}", e.getMessage());
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("data", null);
             errorResponse.put("message", e.getMessage());
             errorResponse.put("status", "error");
             return ResponseEntity.badRequest().body(errorResponse);
         } catch (Exception e) {
-            logger.error("Unexpected error updating order status: {}", e.getMessage());
+            logger.error("Unexpected error updating delivery status: {}", e.getMessage());
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("data", null);
-            errorResponse.put("message", "Failed to update order status: " + e.getMessage());
+            errorResponse.put("message", "Failed to update delivery status: " + e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    @PutMapping("/{orderId}/payment-status")
+    public ResponseEntity<Map<String, Object>> updatePaymentStatus(
+            @PathVariable Long orderId,
+            @RequestBody Map<String, Object> requestBody) {
+        logger.info("Received request to update payment status for orderId={}", orderId);
+        try {
+            Long userId = requestBody.get("userId") != null ? ((Number) requestBody.get("userId")).longValue() : null;
+            String paymentStatus = (String) requestBody.get("paymentStatus");
+            if (userId == null) {
+                throw new IllegalArgumentException("userId is required in request body");
+            }
+            if (paymentStatus == null || paymentStatus.trim().isEmpty()) {
+                throw new IllegalArgumentException("paymentStatus is required in request body");
+            }
+
+            Order updatedOrder = orderService.updatePaymentStatus(orderId, userId, paymentStatus);
+            OrderResponse orderResponse = new OrderResponse(updatedOrder);
+            enrichOrderItems(updatedOrder, orderResponse);
+            logger.debug("Payment status updated to {} successfully: {}", paymentStatus, orderResponse);
+
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("data", orderResponse);
+            responseBody.put("message", "Payment status updated to " + paymentStatus + " successfully");
+            responseBody.put("status", "success");
+            return ResponseEntity.ok(responseBody);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            logger.warn("Error updating payment status: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.badRequest().body(errorResponse);
+        } catch (Exception e) {
+            logger.error("Unexpected error updating payment status: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", "Failed to update payment status: " + e.getMessage());
             errorResponse.put("status", "error");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
@@ -380,6 +459,82 @@ public class OrderRestController {
             orderResponse.setOrderItems(orderItemResponses);
         }
     }
+    
+    @PostMapping("/verify-esewa")
+    public ResponseEntity<Map<String, Object>> verifyEsewaPayment(@RequestBody VerifyEsewaRequest request) {
+        logger.info("Received eSewa verification request: transactionUuid={}, amount={}",
+                request.getTransaction_uuid(), request.getAmount());
+        try {
+            if (request.getTransaction_uuid() == null || request.getAmount() == null) {
+                throw new IllegalArgumentException("transactionUuid and amount are required");
+            }
+
+            Order order = orderService.findOrderByTransactionUuid(request.getTransaction_uuid());
+            logger.debug("Found order: {}", order);
+            if (order == null) {
+                throw new IllegalStateException("Order not found for transaction UUID: " + request.getTransaction_uuid());
+            }
+
+            Payment payment = order.getPayment();
+            logger.debug("Found payment: {}", payment);
+            if (payment == null) {
+                logger.warn("No payment found for order ID: {}", order.getId());
+                throw new IllegalStateException("No payment associated with the order");
+            }
+
+            logger.debug("Stored amount: {}, Received amount: {}", payment.getAmount(), request.getAmount());
+            if (Double.compare(payment.getAmount(), request.getAmount()) == 0) {
+                payment.setStatus(PaymentStatus.COMPLETED);
+                payment.setEsewaRefId(request.getTransaction_uuid());
+                order.setStatus("CONFIRMED");
+
+                order = orderService.saveOrder(order);
+                OrderResponse orderResponse = new OrderResponse(order);
+                enrichOrderItems(order, orderResponse);
+                orderResponse.setUser(mapUserToDto(order.getUser()));
+                logger.info("Payment verified and status updated to COMPLETED for order ID: {}", order.getId());
+
+                Map<String, Object> responseBody = new HashMap<>();
+                responseBody.put("data", orderResponse);
+                responseBody.put("message", "eSewa payment verified successfully");
+                responseBody.put("status", "success");
+                return ResponseEntity.ok(responseBody);
+            } else {
+                logger.warn("Amount mismatch: Stored amount: {}, Received amount: {}", 
+                           payment.getAmount(), request.getAmount());
+                throw new IllegalStateException("Invalid transaction or amount mismatch");
+            }
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            logger.warn("Error verifying eSewa payment: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.badRequest().body(errorResponse);
+        } catch (Exception e) {
+            logger.error("Unexpected error verifying eSewa payment: {}", e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", "Failed to verify eSewa payment: " + e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+    
+    private UserDto mapUserToDto(User user) {
+        if (user == null) {
+            return null;
+        }
+        UserDto dto = new UserDto();
+        dto.setId(user.getId());
+        dto.setEmail(user.getEmail() != null ? user.getEmail() : "");
+        dto.setUsername(user.getUsername() != null ? user.getUsername() : "");
+        dto.setLocation(user.getLocation() != null ? user.getLocation() : "");
+        dto.setPhoneNumber(user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
+        dto.setRole(user.getRole() != null ? user.getRole() : "");
+        return dto;
+    }
+
 
     private void mapFoodToDto(FoodItem food, FoodItemDto dto) {
         dto.setId(food.getId());

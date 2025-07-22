@@ -1,13 +1,13 @@
 package com.example.demo.dto;
 
-import java.util.List;
-
 import com.example.demo.model.Order;
+
+import java.util.List;
 
 public class OrderResponse {
     private Long orderId;
     private Long userId;
-    private UserDto user; // New field for user details
+    private UserDto user;
     private List<OrderItemResponse> orderItems;
     private Double amount;
     private String paymentMethod;
@@ -19,7 +19,6 @@ public class OrderResponse {
     private String deliveryCoordinates;
     private String transactionUuid;
 
-    // Constructor
     public OrderResponse(Order order) {
         this.orderId = order.getId();
         this.userId = order.getUser() != null ? order.getUser().getId() : null;
@@ -55,7 +54,7 @@ public class OrderResponse {
         return user;
     }
 
-    public void setUser(UserDto DTO) {
+    public void setUser(UserDto user) {
         this.user = user;
     }
 

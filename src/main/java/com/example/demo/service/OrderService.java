@@ -1,3 +1,4 @@
+
 package com.example.demo.service;
 
 import com.example.demo.dto.OrderResponse;
@@ -25,7 +26,9 @@ import java.util.stream.Collectors;
 @Service
 public class OrderService {
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
-    private static final List<String> VALID_STATUSES = Arrays.asList("PLACED", "CONFIRMED", "PREPARING", "READY", "CANCELLED");
+    private static final List<String> VALID_STATUSES = Arrays.asList("PLACED", "CONFIRMED", "PREPARING", "READY", "PICKED_UP", "DELIVERED", "CANCELLED");
+    private static final List<String> VALID_PAYMENT_STATUSES = Arrays.asList("PENDING", "COMPLETED", "CANCELLED");
+    private static final List<String> VALID_DELIVERY_STATUSES = Arrays.asList("PICKED_UP", "DELIVERED");
 
     @Autowired
     private OrderRepository orderRepository;
@@ -260,7 +263,6 @@ public class OrderService {
             throw new IllegalArgumentException("Invalid status: " + status + ". Allowed values: " + VALID_STATUSES);
         }
 
-        // Define valid state transitions
         String currentStatus = order.getStatus();
         if ("PLACED".equals(currentStatus) && !"CONFIRMED".equals(status.toUpperCase())) {
             throw new IllegalStateException("Order in PLACED status can only transition to CONFIRMED");
@@ -271,11 +273,86 @@ public class OrderService {
         if ("PREPARING".equals(currentStatus) && !"READY".equals(status.toUpperCase())) {
             throw new IllegalStateException("Order in PREPARING status can only transition to READY");
         }
-        if ("READY".equals(currentStatus) || "CANCELLED".equals(currentStatus)) {
-            throw new IllegalStateException("Order in " + currentStatus + " status cannot be updated");
+        if ("READY".equals(currentStatus) || "PICKED_UP".equals(currentStatus) || "DELIVERED".equals(currentStatus) || "CANCELLED".equals(currentStatus)) {
+            throw new IllegalStateException("Order in " + currentStatus + " status cannot be updated by chef");
         }
 
         order.setStatus(status.toUpperCase());
+        return orderRepository.save(order);
+    }
+
+    @Transactional
+    public Order updateDeliveryStatus(Long orderId, Long userId, String status) {
+        logger.info("Updating delivery status for orderId={} to status={} by userId={}", orderId, status, userId);
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+
+        User user = userService.findById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found: " + userId);
+        }
+        if (!"DELIVERY".equals(user.getRole())) {
+            throw new IllegalStateException("User must have DELIVERY role to update delivery status");
+        }
+        if (!VALID_STATUSES.contains(status.toUpperCase())) {
+            throw new IllegalArgumentException("Invalid status: " + status + ". Allowed values: " + VALID_STATUSES);
+        }
+
+        String currentStatus = order.getStatus();
+        if ("READY".equals(currentStatus) && !"PICKED_UP".equals(status.toUpperCase())) {
+            throw new IllegalStateException("Order in READY status can only transition to PICKED_UP");
+        }
+        if ("PICKED_UP".equals(currentStatus) && !"DELIVERED".equals(status.toUpperCase())) {
+            throw new IllegalStateException("Order in PICKED_UP status can only transition to DELIVERED");
+        }
+        if ("DELIVERED".equals(currentStatus) || "CANCELLED".equals(currentStatus)) {
+            throw new IllegalStateException("Order in " + currentStatus + " status cannot be updated");
+        }
+
+        if ("DELIVERED".equals(status.toUpperCase()) && order.getPayment() != null && 
+            "CASH_ON_DELIVERY".equals(order.getPayment().getPaymentMethod())) {
+            if (order.getPayment().getStatus() != PaymentStatus.COMPLETED) {
+                throw new IllegalStateException("CASH_ON_DELIVERY orders must have payment status COMPLETED to transition to DELIVERED");
+            }
+        }
+
+        order.setStatus(status.toUpperCase());
+        return orderRepository.save(order);
+    }
+
+    @Transactional
+    public Order updatePaymentStatus(Long orderId, Long userId, String paymentStatus) {
+        logger.info("Updating payment status for orderId={} to paymentStatus={} by userId={}", orderId, paymentStatus, userId);
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+
+        User user = userService.findById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found: " + userId);
+        }
+        if (!"DELIVERY".equals(user.getRole())) {
+            throw new IllegalStateException("User must have DELIVERY role to update payment status");
+        }
+        if (!VALID_PAYMENT_STATUSES.contains(paymentStatus.toUpperCase())) {
+            throw new IllegalArgumentException("Invalid payment status: " + paymentStatus + ". Allowed values: " + VALID_PAYMENT_STATUSES);
+        }
+        if (!"COMPLETED".equals(paymentStatus.toUpperCase())) {
+            throw new IllegalArgumentException("Payment status can only be updated to COMPLETED");
+        }
+
+        Payment payment = order.getPayment();
+        if (payment == null) {
+            throw new IllegalStateException("No payment associated with the order");
+        }
+        if (!"CASH_ON_DELIVERY".equals(payment.getPaymentMethod())) {
+            throw new IllegalStateException("Payment status can only be updated for CASH_ON_DELIVERY orders");
+        }
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new IllegalStateException("Payment status can only be updated from PENDING to COMPLETED");
+        }
+
+        payment.setStatus(PaymentStatus.COMPLETED);
+        paymentRepository.save(payment);
         return orderRepository.save(order);
     }
 
@@ -302,5 +379,38 @@ public class OrderService {
             return orderRepository.findOrdersByFoodItemUserId(chefId);
         }
         return orderRepository.findOrdersByFoodItemUserIdAndStatus(chefId, status.toUpperCase());
+    }
+
+    public List<Order> findReadyOrdersForDelivery(Long userId) {
+        logger.info("Fetching READY orders for delivery userId={}", userId);
+        if (userId == null) {
+            throw new IllegalArgumentException("userId is required");
+        }
+        User user = userService.findById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found: " + userId);
+        }
+        if (!"DELIVERY".equals(user.getRole())) {
+            throw new IllegalStateException("User must have DELIVERY role to fetch READY orders");
+        }
+        return orderRepository.findByStatus("READY");
+    }
+
+    public List<Order> findDeliveryOrdersByStatus(Long userId, String status) {
+        logger.info("Fetching orders with status={} for delivery userId={}", status, userId);
+        if (userId == null) {
+            throw new IllegalArgumentException("userId is required");
+        }
+        User user = userService.findById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found: " + userId);
+        }
+        if (!"DELIVERY".equals(user.getRole())) {
+            throw new IllegalStateException("User must have DELIVERY role to fetch orders");
+        }
+        if (status == null || !VALID_DELIVERY_STATUSES.contains(status.toUpperCase())) {
+            throw new IllegalArgumentException("Invalid status: " + status + ". Allowed values: " + VALID_DELIVERY_STATUSES);
+        }
+        return orderRepository.findByStatus(status.toUpperCase());
     }
 }
