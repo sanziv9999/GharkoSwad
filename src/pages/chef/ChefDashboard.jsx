@@ -32,6 +32,7 @@ const ChefDashboard = () => {
     discountPercentage: ''
   });
   const [imagePreview, setImagePreview] = useState(null); // State for image preview
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   // Distance calculation functions
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -204,8 +205,12 @@ const ChefDashboard = () => {
 
     const loadOrders = async () => {
       try {
-        // Use hardcoded chef ID of 1 as per the API endpoint
-        const chefId = 1;
+        const userData = JSON.parse(localStorage.getItem('user'));
+        if (!userData || !userData.id) {
+          showBanner('error', 'Chef ID not found in localStorage');
+          return;
+        }
+        const chefId = userData.id;
         const result = await apiService.getOrdersByChefId(chefId);
         if (result && result.data) {
           setOrders(result.data);
@@ -218,6 +223,20 @@ const ChefDashboard = () => {
     loadFoodItems();
     loadOrders();
   }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (!event.target.closest('.profile-dropdown-parent')) {
+        setShowProfileDropdown(false);
+      }
+    }
+    if (showProfileDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showProfileDropdown]);
 
   const showBanner = (type, message) => {
     setBanner({ show: true, type, message });
@@ -514,116 +533,183 @@ const ChefDashboard = () => {
         <Banner type={banner.type} message={banner.message} onClose={() => setBanner({ show: false, type: '', message: '' })} />
       )}
       
-      {/* Premium Header with Gradient Background */}
+      {/* Modern Professional Header with Responsive Layout */}
       <div className="bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 shadow-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-6">
-              {/* Logo Section */}
-              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 border border-white/30">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                    <ChefHat className="w-7 h-7 text-emerald-600" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-white">
-                      GharkoSwad
-                    </h1>
-                    <p className="text-emerald-100 text-sm font-medium">Professional Kitchen</p>
-                  </div>
-                </div>
+        <div className="max-w-6xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
+          <div className="flex flex-col md:flex-row items-center md:items-stretch justify-between gap-4 md:gap-6 w-full">
+            {/* Logo Card */}
+            <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 border border-white/30 flex items-center min-w-[180px] max-w-full shadow-md w-full md:w-auto justify-center md:justify-start">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
+                <ChefHat className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" />
               </div>
-              
-              {/* Welcome Section */}
-              <div className="hidden lg:block">
-                <h2 className="text-3xl font-bold text-white mb-1">
-                  Chef Dashboard
-                </h2>
-                <p className="text-emerald-100 text-lg">Welcome back, Chef {user?.username}! 👨‍🍳</p>
-                {currentLocation ? (
-                  <div className="mt-3 flex items-center text-emerald-200 text-sm">
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full mr-2 animate-pulse"></div>
-                    Location enabled for distance estimates
-                    <button 
-                      onClick={getCurrentLocation} 
-                      className="ml-3 text-emerald-200 hover:text-white underline font-medium transition-colors"
-                      title="Refresh location"
-                    >
-                      Refresh
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mt-3 flex items-center text-emerald-200 text-sm">
-                    <div className="w-2 h-2 bg-yellow-400 rounded-full mr-2 animate-pulse"></div>
-                    Getting location for distance estimates...
-                  </div>
-                )}
+              <div className="ml-3">
+                <h1 className="text-xl sm:text-2xl font-bold text-white">GharkoSwad</h1>
+                <p className="text-emerald-100 text-xs sm:text-sm font-medium">Professional Kitchen</p>
               </div>
             </div>
-                        {/* Action Buttons */}
-            <div className="flex items-center space-x-4">
-              {activeTab === 'menu' && (
-                <button 
-                  onClick={() => setShowAddForm(true)} 
-                  className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border border-white/30 hover:border-white/50 transition-all duration-300 rounded-xl px-6 py-3 flex items-center space-x-3 font-medium shadow-lg hover:shadow-xl"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span>Add New Dish</span>
-                </button>
-              )}
-              <button 
-                onClick={handleLogout} 
-                className="bg-white/10 backdrop-blur-sm hover:bg-red-500/20 text-white border border-white/20 hover:border-red-300 transition-all duration-300 rounded-xl px-6 py-3 flex items-center space-x-3 font-medium shadow-lg hover:shadow-xl"
+            {/* User Avatar Dropdown */}
+            <div className="relative w-full md:w-auto flex justify-center md:justify-end profile-dropdown-parent mt-2 md:mt-0">
+              <button
+                onClick={() => setShowProfileDropdown((prev) => !prev)}
+                className="focus:outline-none"
+                aria-label="Open profile menu"
               >
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-100 rounded-full flex items-center justify-center border-2 border-white/40 shadow-md hover:ring-2 hover:ring-emerald-400 transition">
+                  <User className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" />
+                </div>
               </button>
-            </div>
-          </div>
-          
-          {/* Premium Navigation Tabs */}
-          <div className="mt-8">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-2 border border-white/20">
-              <nav className="flex space-x-2">
-                <button
-                  onClick={() => setActiveTab('menu')}
-                  className={`flex-1 py-4 px-6 rounded-xl font-medium text-sm transition-all duration-300 ${
-                    activeTab === 'menu'
-                      ? 'bg-white text-emerald-600 shadow-lg'
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center justify-center space-x-3">
-                    <ChefHat className="w-5 h-5" />
-                    <span className="font-semibold">Menu Items</span>
-                    <span className={`${activeTab === 'menu' ? 'bg-emerald-100 text-emerald-700' : 'bg-white/20 text-white'} rounded-full px-3 py-1 text-xs font-bold`}>
-                      {foodItems.length}
-                    </span>
+              {showProfileDropdown && (
+                <div className="absolute right-0 md:right-0 top-14 md:top-auto md:mt-3 w-64 bg-white rounded-xl shadow-2xl border border-emerald-100 z-50 p-5 animate-fade-in">
+                  <div className="flex items-center mb-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-100 rounded-full flex items-center justify-center mr-3">
+                      <User className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" />
+                    </div>
+                    <div>
+                      <div className="text-gray-900 font-semibold text-base">{user?.username || 'Chef'}</div>
+                      <div className="text-emerald-700 text-xs">{user?.role || ''}</div>
+                    </div>
                   </div>
-                </button>
-                <button
-                  onClick={() => setActiveTab('orders')}
-                  className={`flex-1 py-4 px-6 rounded-xl font-medium text-sm transition-all duration-300 ${
-                    activeTab === 'orders'
-                      ? 'bg-white text-emerald-600 shadow-lg'
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center justify-center space-x-3">
-                    <ShoppingBag className="w-5 h-5" />
-                    <span className="font-semibold">Orders</span>
-                    <span className={`${activeTab === 'orders' ? 'bg-emerald-100 text-emerald-700' : 'bg-white/20 text-white'} rounded-full px-3 py-1 text-xs font-bold`}>
-                      {orders.length}
-                    </span>
+                  <div className="mb-2">
+                    <div className="text-gray-700 text-sm font-medium">{user?.email || ''}</div>
+                    {user?.address && (
+                      <div className="text-gray-500 text-xs mt-1">{user.address}</div>
+                    )}
                   </div>
-                </button>
-              </nav>
+                  <button
+                    onClick={handleLogout}
+                    className="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg transition"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {/* Add New Dish Button in Body */}
+        {activeTab === 'menu' && (
+          <div className="flex flex-col sm:flex-row justify-end items-center mb-8 gap-4">
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl px-6 py-3 flex items-center justify-center space-x-2 shadow-lg transition-all text-base"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Add New Dish</span>
+            </button>
+          </div>
+        )}
+
+        {/* Add/Edit Dish Modal Overlay */}
+        {(showAddForm || editingItem) && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="relative w-full max-w-lg mx-2 sm:mx-auto bg-white rounded-3xl shadow-2xl p-6 sm:p-10 animate-fade-in overflow-y-auto max-h-[90vh]">
+              <button
+                onClick={editingItem ? handleCancelEdit : handleCancelAdd}
+                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors duration-200 rounded-xl hover:bg-red-50 border border-gray-200 hover:border-red-200 z-10"
+                aria-label="Close"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                  {editingItem ? <Edit className="w-6 h-6 text-white" /> : <Plus className="w-6 h-6 text-white" />}
+                </div>
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+                  {editingItem ? 'Edit Food Item' : 'Add New Food Item'}
+                </h2>
+              </div>
+              <form onSubmit={editingItem ? handleUpdateItem : handleAddItem} className="space-y-6" encType="multipart/form-data">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Input label="Item Name *" name="name" value={formData.name} onChange={handleInputChange} placeholder="Enter dish name" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    placeholder="Describe your dish..."
+                    rows={4}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <Input label="Original Price (₹) *" name="originalPrice" type="number" value={formData.originalPrice} onChange={handleInputChange} placeholder="0.00" min="0" step="0.01" required />
+                  <Input label="Preparation Time" name="preparationTime" value={formData.preparationTime} onChange={handleInputChange} placeholder="e.g., 25-30 min" />
+                  <Input label="Discount (%)" name="discountPercentage" type="number" value={formData.discountPercentage} onChange={handleInputChange} placeholder="0-100" min="0" max="100" step="0.01" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Food Image</label>
+                    <div className="flex items-center space-x-4">
+                      <label htmlFor="image" className="cursor-pointer bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700 transition-colors duration-200">
+                        <Upload className="w-4 h-4" />
+                        <span>Choose Image</span>
+                      </label>
+                      <input
+                        id="image"
+                        name="image"
+                        type="file"
+                        onChange={handleInputChange}
+                        className="hidden"
+                        accept="image/*"
+                      />
+                      {formData.image && (
+                        <span className="text-sm text-gray-600">{formData.image.name}</span>
+                      )}
+                    </div>
+                  </div>
+                  {imagePreview && (
+                    <div className="flex items-center">
+                      <img src={imagePreview} alt="Preview" className="w-32 h-32 object-cover rounded-lg border border-gray-300" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tags (comma-separated)</label>
+                  <Input
+                    name="tags"
+                    value={formData.tags}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Spicy, Vegetarian, Popular"
+                  />
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="available"
+                    name="available"
+                    checked={formData.available}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="available" className="ml-2 block text-sm text-gray-700">Available for orders</label>
+                </div>
+                <div className="flex space-x-4">
+                  <Button
+                    type="submit"
+                    className="bg-green-600 hover:bg-green-700 text-white flex items-center space-x-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{editingItem ? 'Update Item' : 'Add Item'}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={editingItem ? handleCancelEdit : handleCancelAdd}
+                    className="bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Premium Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {/* Total Items Card */}
@@ -714,114 +800,6 @@ const ChefDashboard = () => {
         {/* Menu Content */}
         {activeTab === 'menu' && (
           <>
-                    {(showAddForm || editingItem) && (
-              <div className="relative mb-10">
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-green-500 rounded-3xl blur opacity-20"></div>
-                <div className="relative bg-white/95 backdrop-blur-sm rounded-3xl p-8 border border-emerald-200 shadow-2xl">
-                  <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
-                        {editingItem ? <Edit className="w-6 h-6 text-white" /> : <Plus className="w-6 h-6 text-white" />}
-                      </div>
-                      <h2 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-                        {editingItem ? 'Edit Food Item' : 'Add New Food Item'}
-                      </h2>
-                    </div>
-                    <button 
-                      onClick={editingItem ? handleCancelEdit : handleCancelAdd} 
-                      className="p-3 text-gray-400 hover:text-red-500 transition-colors duration-200 rounded-xl hover:bg-red-50 border border-gray-200 hover:border-red-200"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
-                  </div>
-                <form onSubmit={editingItem ? handleUpdateItem : handleAddItem} className="space-y-6" encType="multipart/form-data">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Input label="Item Name *" name="name" value={formData.name} onChange={handleInputChange} placeholder="Enter dish name" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
-                    <textarea 
-                      name="description" 
-                      value={formData.description} 
-                      onChange={handleInputChange} 
-                      placeholder="Describe your dish..." 
-                      rows={4} 
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" 
-                      required 
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Input label="Original Price (₹) *" name="originalPrice" type="number" value={formData.originalPrice} onChange={handleInputChange} placeholder="0.00" min="0" step="0.01" required />
-                    <Input label="Preparation Time" name="preparationTime" value={formData.preparationTime} onChange={handleInputChange} placeholder="e.g., 25-30 min" />
-                    <Input label="Discount (%)" name="discountPercentage" type="number" value={formData.discountPercentage} onChange={handleInputChange} placeholder="0-100" min="0" max="100" step="0.01" />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Food Image</label>
-                      <div className="flex items-center space-x-4">
-                        <label htmlFor="image" className="cursor-pointer bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700 transition-colors duration-200">
-                          <Upload className="w-4 h-4" />
-                          <span>Choose Image</span>
-                        </label>
-                        <input
-                          id="image"
-                          name="image"
-                          type="file"
-                          onChange={handleInputChange}
-                          className="hidden"
-                          accept="image/*"
-                        />
-                        {formData.image && (
-                          <span className="text-sm text-gray-600">{formData.image.name}</span>
-                        )}
-                      </div>
-                    </div>
-                    {imagePreview && (
-                      <div className="flex items-center">
-                        <img src={imagePreview} alt="Preview" className="w-32 h-32 object-cover rounded-lg border border-gray-300" />
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tags (comma-separated)</label>
-                    <Input
-                      name="tags"
-                      value={formData.tags}
-                      onChange={handleInputChange}
-                      placeholder="e.g., Spicy, Vegetarian, Popular"
-                    />
-                  </div>
-                  <div className="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      id="available" 
-                      name="available" 
-                      checked={formData.available} 
-                      onChange={handleInputChange} 
-                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded" 
-                    />
-                    <label htmlFor="available" className="ml-2 block text-sm text-gray-700">Available for orders</label>
-                  </div>
-                  <div className="flex space-x-4">
-                    <Button 
-                      type="submit" 
-                      className="bg-green-600 hover:bg-green-700 text-white flex items-center space-x-2"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>{editingItem ? 'Update Item' : 'Add Item'}</span>
-                    </Button>
-                    <Button 
-                      type="button" 
-                      onClick={editingItem ? handleCancelEdit : handleCancelAdd}
-                      className="bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-                </div>
-              </div>
-            )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {foodItems.map((item) => (
