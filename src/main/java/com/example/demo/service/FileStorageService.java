@@ -13,43 +13,46 @@ import java.util.UUID;
 
 @Service
 public class FileStorageService {
-
     private static final Logger logger = LoggerFactory.getLogger(FileStorageService.class);
-
-    private final String uploadDir = "uploads/images/";
-
-    public FileStorageService() {
-        try {
-            Files.createDirectories(Paths.get(uploadDir));
-            logger.info("Upload directory created: {}", uploadDir);
-        } catch (IOException e) {
-            logger.error("Could not create upload directory: {}", e.getMessage(), e);
-            throw new RuntimeException("Could not create upload directory", e);
-        }
-    }
+    private static final String UPLOAD_DIR = "uploads/images/";
+    private static final String BASE_URL = "/images/"; // Relative path for client use
 
     public String storeFile(MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
-            logger.warn("Attempted to store an empty or null file");
-            throw new IllegalArgumentException("File is empty or null");
+            logger.warn("No file provided for upload");
+            return null;
         }
 
+        // Validate file type (only images)
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
-            logger.warn("Invalid file type: {}", contentType);
-            throw new IllegalArgumentException("Only image files are allowed");
+            logger.warn("Invalid file type: {}. Only image files are allowed", contentType);
+            throw new IOException("Only image files are allowed");
         }
 
-        String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-        Path filePath = Paths.get(uploadDir + fileName);
+        // Ensure upload directory exists
+        Path uploadPath = Paths.get(UPLOAD_DIR);
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+            logger.info("Created upload directory: {}", uploadPath);
+        }
 
+        // Generate unique filename
+        String originalFilename = file.getOriginalFilename();
+        String fileExtension = originalFilename != null && originalFilename.contains(".")
+                ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                : ".jpg";
+        String uniqueFilename = UUID.randomUUID().toString() + fileExtension;
+        Path filePath = uploadPath.resolve(uniqueFilename);
+
+        // Save the file
         try {
-            Files.write(filePath, file.getBytes());
+            Files.copy(file.getInputStream(), filePath);
             logger.info("File saved successfully: {}", filePath);
-            return "/images/" + fileName;
+            return BASE_URL + uniqueFilename;
         } catch (IOException e) {
-            logger.error("Failed to save file {}: {}", fileName, e.getMessage(), e);
-            throw e; // Re-throw to be caught by the controller
+            logger.error("Failed to save file {}: {}", filePath, e.getMessage());
+            throw new IOException("Failed to save file: " + e.getMessage(), e);
         }
     }
 }
