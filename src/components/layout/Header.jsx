@@ -34,6 +34,8 @@ const Header = () => {
               <Logo />
             </Link>
 
+            
+
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center space-x-8">
               <Link
@@ -96,25 +98,43 @@ const Header = () => {
                       onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
                       className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
                     >
-                      <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center">
-                        <User className="w-4 h-4 text-white" />
+                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                        <span className="text-green-700 font-bold text-lg">
+                          {user?.username ? user.username.charAt(0).toUpperCase() : <User className="w-4 h-4 text-green-700" />}
+                        </span>
                       </div>
                       <span className="text-sm font-medium text-gray-700 hidden lg:block">
-                        {user?.name}
+                        {user?.username}
                       </span>
                     </button>
                     {isUserDropdownOpen && (
-                      <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-2">
+                      <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-100 py-4 px-5 z-50">
+                        {/* User Profile Info */}
+                        <div className="flex items-center mb-4">
+                          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                            <span className="text-green-700 font-bold text-lg">
+                              {user?.username ? user.username.charAt(0).toUpperCase() : <User className="w-6 h-6 text-green-700" />}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="text-gray-900 font-semibold text-base">{user?.username}</div>
+                            <div className="text-green-700 text-xs font-bold uppercase">{user?.role}</div>
+                          </div>
+                        </div>
+                        <div className="mb-2">
+                          <div className="text-gray-700 text-sm font-medium">{user?.email}</div>
+                        </div>
+                        <hr className="my-3" />
                         <Link
                           to="/my-orders"
-                          className="block px-4 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary-600"
+                          className="block px-4 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary-600 rounded-lg"
                           onClick={() => setIsUserDropdownOpen(false)}
                         >
                           My Orders
                         </Link>
                         <Link
                           to="/dashboard"
-                          className="block px-4 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary-600"
+                          className="block px-4 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary-600 rounded-lg"
                           onClick={() => setIsUserDropdownOpen(false)}
                         >
                           Dashboard

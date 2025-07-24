@@ -442,5 +442,32 @@ export const apiService = {
     const response = await this.put(`/delivery/${deliveryId}/location`, requestBody, tokenFromStorage);
     console.log('Location update response:', response);
     return response;
+  },
+
+  async getAllChefs(token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    const result = await this.get('/users/chefs', tokenFromStorage);
+    return result.data; // Assuming the API returns { status, message, data: [...] }
+  },
+
+  async getUserProfile(userId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    if (!userId) throw new Error('userId is required');
+    const response = await this.get(`/users/${userId}/profile`, tokenFromStorage);
+    return response.data;
+  },
+
+  async updateUserProfile(userId, formData, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    if (!userId) throw new Error('userId is required');
+    const headers = {
+      ...(tokenFromStorage && { Authorization: `Bearer ${tokenFromStorage}` }),
+    };
+    const response = await fetch(`${API_CONFIG.BASE_URL}/users/${userId}/profile`, {
+      method: 'PUT',
+      headers,
+      body: formData,
+    });
+    return handleResponse(response);
   }
 };

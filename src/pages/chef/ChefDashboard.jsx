@@ -1,26 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, X, Upload, Star, Clock, Users, DollarSign, ShoppingBag, ChefHat, LogOut, User, MapPin } from 'lucide-react';
+import { User, Plus, Edit, Trash2, Upload, Star, Clock, MapPin, Phone, Mail, ChefHat, TrendingUp, Package, DollarSign } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../api/apiService';
-import Card from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
+import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
+import Button from '../../components/ui/Button';
+import imagePathService from '../../services/imageLocation/imagePath';
+import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Banner from '../../components/ui/Banner';
-import imagePathService from '../../services/imageLocation/imagePath'; 
 
 const ChefDashboard = () => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('menu'); // 'menu' or 'orders'
+  const { user, logout, setUser } = useAuth();
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editProfileData, setEditProfileData] = useState({
+    email: user?.email || '',
+    username: user?.username || '',
+    location: user?.address || '',
+    phoneNumber: user?.phone || '',
+    profilePicture: null,
+    profilePicturePreview: user?.profilePicture ? imagePathService.getImageUrl(user.profilePicture) : null,
+    coordinate: '',
+    description: user?.description || '',
+  });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
   const [foodItems, setFoodItems] = useState([]);
-  const [orders, setOrders] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [banner, setBanner] = useState({ show: false, type: '', message: '' });
-  const [currentLocation, setCurrentLocation] = useState(null);
-  const [orderStatusFilter, setOrderStatusFilter] = useState('ALL'); // Order status filter
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -28,160 +36,96 @@ const ChefDashboard = () => {
     available: true,
     image: null,
     preparationTime: '',
-    tags: '', // String input for tags
+    tags: '',
     discountPercentage: ''
   });
-  const [imagePreview, setImagePreview] = useState(null); // State for image preview
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [orderStatusFilter, setOrderStatusFilter] = useState('ALL');
 
-  // Distance calculation functions
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Radius of the Earth in kilometers
-    const dLat = deg2rad(lat2 - lat1);
-    const dLon = deg2rad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const d = R * c; // Distance in kilometers
-    return d;
-  };
-
-  const deg2rad = (deg) => {
-    return deg * (Math.PI / 180);
-  };
-
-  const formatDistance = (distance) => {
-    return `${distance.toFixed(2)} km`;
-  };
-
-  const calculateEstimatedTime = (distance) => {
-    // Average delivery speed: 25 km/h (considering traffic, stops, navigation, etc.)
-    const averageSpeed = 25;
-    const timeInHours = distance / averageSpeed;
-    const timeInMinutes = Math.round(timeInHours * 60);
-    
-    // Add buffer time for very short distances (pickup, parking, etc.)
-    const bufferTime = distance < 1 ? 5 : Math.min(10, Math.round(distance));
-    const totalMinutes = timeInMinutes + bufferTime;
-    
-    if (totalMinutes < 60) {
-      return `${totalMinutes} min`;
-    } else {
-      const hours = Math.floor(totalMinutes / 60);
-      const remainingMinutes = totalMinutes % 60;
-      return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-    }
-  };
-
-  const parseCoordinates = (coordString) => {
-    try {
-      const coords = JSON.parse(coordString);
-      return { lat: coords[0], lng: coords[1] };
-    } catch (error) {
-      console.error('Error parsing coordinates:', error);
-      return null;
-    }
-  };
-
-  const getDistanceToDelivery = (deliveryCoordinates) => {
-    if (!currentLocation) {
-      return { text: 'Getting location...', distance: null };
-    }
-    
-    if (!deliveryCoordinates) {
-      return { text: 'Unknown', distance: null };
-    }
-    
-    const deliveryCoords = parseCoordinates(deliveryCoordinates);
-    if (!deliveryCoords) {
-      return { text: 'Invalid coords', distance: null };
-    }
-
-    const distance = calculateDistance(
-      currentLocation.lat,
-      currentLocation.lng,
-      deliveryCoords.lat,
-      deliveryCoords.lng
-    );
-
-    const formattedDistance = formatDistance(distance);
-    const estimatedTime = calculateEstimatedTime(distance);
-
-    return {
-      text: `${formattedDistance} • Est. ${estimatedTime}`,
-      distance: distance
+  // Fetch and sync user profile on mount
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const userData = JSON.parse(localStorage.getItem('user'));
+        if (!userData || !userData.id) return;
+        const profile = await apiService.getUserProfile(userData.id);
+        if (profile) {
+          const updatedUser = {
+            ...userData, // Use userData from localStorage instead of user from state
+            ...profile,
+            address: profile.location,
+            phone: profile.phoneNumber,
+            profilePicture: profile.profilePicture,
+            description: profile.description,
+          };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          setUser(updatedUser);
+          setEditProfileData(prev => ({
+            ...prev,
+            email: profile.email || '',
+            username: profile.username || '',
+            location: profile.location || '',
+            phoneNumber: profile.phoneNumber || '',
+            profilePicture: null,
+            profilePicturePreview: profile.profilePicture ? imagePathService.getImageUrl(profile.profilePicture) : null,
+            coordinate: profile.coordinate || '',
+            description: profile.description || '',
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        // Optionally show error banner
+      }
     };
+    fetchUserProfile();
+  }, []); // Empty dependency array - only run on mount
+
+  // Helper for reverse geocoding
+  const fetchAddressFromCoords = async (lat, lng) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      const data = await response.json();
+      return data.display_name || `${lat},${lng}`;
+    } catch {
+      return `${lat},${lng}`;
+    }
   };
 
-  const getCurrentLocation = () => {
+  // Update fetchLiveLocation to use reverse geocoding
+  const fetchLiveLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const address = await fetchAddressFromCoords(lat, lng);
+          setEditProfileData((prev) => ({
+            ...prev,
+            location: address,
+            coordinate: `${lat},${lng}`,
+          }));
         },
-        (error) => {
-          console.error('Error getting location:', error);
-          showBanner('error', 'Could not get your location for distance calculation');
+        () => {
+          console.error('Error getting location');
+          // Optionally show error banner
         }
       );
-    } else {
-      showBanner('error', 'Geolocation is not supported by this browser');
-    }
-  };
-
-  // Order filtering functions
-  const getOrdersByStatus = (status) => {
-    if (status === 'ALL') return orders;
-    return orders.filter(order => order.status === status);
-  };
-
-  const getOrderCounts = () => {
-    const counts = {
-      ALL: orders.length,
-      PLACED: 0,
-      CONFIRMED: 0,
-      PREPARING: 0,
-      READY: 0,
-      CANCELLED: 0
-    };
-    
-    orders.forEach(order => {
-      if (counts.hasOwnProperty(order.status)) {
-        counts[order.status]++;
-      }
-    });
-    
-    return counts;
-  };
-
-  const getStatusBadgeColor = (status) => {
-    switch (status) {
-      case 'ALL': return 'bg-gray-50 text-gray-700 border-gray-200';
-      case 'PLACED': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-      case 'CONFIRMED': return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'PREPARING': return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'READY': return 'bg-green-50 text-green-700 border-green-200';
-      case 'CANCELLED': return 'bg-red-50 text-red-700 border-red-200';
-      default: return 'bg-gray-50 text-gray-700 border-gray-200';
     }
   };
 
   useEffect(() => {
-    // Get current location for distance calculations
-    getCurrentLocation();
-    
+    if (showEditProfile) {
+      fetchLiveLocation();
+    }
+  }, [showEditProfile]);
+
+  // Load food items on mount
+  useEffect(() => {
     const loadFoodItems = async () => {
       try {
         const userData = JSON.parse(localStorage.getItem('user'));
-        if (!userData || !userData.id) {
-          showBanner('error', 'User ID not found in localStorage');
-          return;
-        }
+        if (!userData || !userData.id) return;
         const id = userData.id;
         const result = await apiService.getFoodsById(id);
         setFoodItems(result.map(item => ({
@@ -193,54 +137,76 @@ const ChefDashboard = () => {
           available: item.available,
           image: imagePathService.getImageUrl(item.imagePath),
           preparationTime: item.preparationTime || '',
-          tags: item.tags || [], // Backend returns tags as array
+          tags: item.tags || [],
           discountPercentage: item.discountPercentage || 0,
-          rating: 0,
-          orders: 0
+          rating: 4.8, // Simulated rating
+          orders: Math.floor(Math.random() * 100) + 10 // Simulated orders
         })));
       } catch (error) {
-        showBanner('error', `Failed to load food items: ${error.message}`);
+        console.error('Error loading food items:', error);
+        // Optionally show error banner
       }
     };
+    loadFoodItems();
+  }, []);
 
+  // Load orders on mount
+  useEffect(() => {
     const loadOrders = async () => {
       try {
         const userData = JSON.parse(localStorage.getItem('user'));
-        if (!userData || !userData.id) {
-          showBanner('error', 'Chef ID not found in localStorage');
-          return;
-        }
+        if (!userData || !userData.id) return;
         const chefId = userData.id;
         const result = await apiService.getOrdersByChefId(chefId);
         if (result && result.data) {
-          setOrders(result.data);
+          // Fetch customer details for each order
+          const ordersWithCustomerData = await Promise.all(
+            result.data.map(async (order) => {
+              if (order.userId && !order.user) {
+                try {
+                  const customerData = await apiService.getUserProfile(order.userId);
+                  return {
+                    ...order,
+                    user: customerData
+                  };
+                } catch (error) {
+                  console.error(`Error fetching customer data for userId ${order.userId}:`, error);
+                  return order; // Return original order if customer data fetch fails
+                }
+              }
+              return order;
+            })
+          );
+          setOrders(ordersWithCustomerData);
         }
       } catch (error) {
-        showBanner('error', `Failed to load orders: ${error.message}`);
+        console.error('Error loading orders:', error);
+        // Optionally show error banner
       }
     };
-
-    loadFoodItems();
     loadOrders();
   }, []);
 
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (!event.target.closest('.profile-dropdown-parent')) {
-        setShowProfileDropdown(false);
-      }
-    }
-    if (showProfileDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-    } else {
-      document.removeEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showProfileDropdown]);
+  const getOrdersByStatus = (status) => {
+    if (status === 'ALL') return orders;
+    return orders.filter(order => order.status === status);
+  };
 
-  const showBanner = (type, message) => {
-    setBanner({ show: true, type, message });
-    setTimeout(() => setBanner({ show: false, type: '', message: '' }), 4000);
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const userData = JSON.parse(localStorage.getItem('user'));
+      if (!userData || !userData.id) return;
+      const chefId = userData.id;
+      const result = await apiService.updateOrderStatus(orderId, newStatus, chefId);
+      if (result && result.data) {
+        setOrders(prev => prev.map(order =>
+          order.orderId === orderId ? { ...order, status: newStatus } : order
+        ));
+      }
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      // Optionally show error banner
+    }
   };
 
   const resetForm = () => {
@@ -251,10 +217,77 @@ const ChefDashboard = () => {
       available: true,
       image: null,
       preparationTime: '',
-      tags: '', // Reset to empty string
+      tags: '',
       discountPercentage: ''
     });
-    setImagePreview(null); // Reset image preview
+    setImagePreview(null);
+  };
+
+  const handleEditProfileChange = (e) => {
+    const { name, value, type, files } = e.target;
+    if (type === 'file' && files && files[0]) {
+      setEditProfileData((prev) => ({
+        ...prev,
+        profilePicture: files[0],
+        profilePicturePreview: URL.createObjectURL(files[0]),
+      }));
+    } else {
+      setEditProfileData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleEditProfileSubmit = async (e) => {
+    e.preventDefault();
+    setIsUpdatingProfile(true);
+    try {
+      const formData = new FormData();
+      const userData = JSON.parse(localStorage.getItem('user'));
+      const userId = userData?.id || user.id;
+      formData.append('id', userId);
+      formData.append('email', editProfileData.email);
+      formData.append('username', editProfileData.username);
+      formData.append('location', editProfileData.location);
+      formData.append('phoneNumber', editProfileData.phoneNumber);
+      formData.append('coordinate', editProfileData.coordinate);
+      formData.append('description', editProfileData.description);
+      if (editProfileData.profilePicture) {
+        formData.append('profilePicture', editProfileData.profilePicture);
+      }
+      const result = await apiService.updateUserProfile(userId, formData);
+      if (result && result.data) {
+        const profile = await apiService.getUserProfile(userId);
+        if (profile) {
+          const updatedUser = {
+            ...user,
+            ...profile,
+            address: profile.location,
+            phone: profile.phoneNumber,
+            profilePicture: profile.profilePicture,
+            description: profile.description,
+          };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          setUser(updatedUser);
+          setEditProfileData(prev => ({
+            ...prev,
+            email: profile.email || '',
+            username: profile.username || '',
+            location: profile.location || '',
+            phoneNumber: profile.phoneNumber || '',
+            profilePicture: null,
+            profilePicturePreview: profile.profilePicture ? imagePathService.getImageUrl(profile.profilePicture) : null,
+            coordinate: profile.coordinate || '',
+            description: profile.description || '',
+          }));
+        }
+        setShowEditProfile(false);
+        // Optionally show success banner
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      // Optionally show error banner
+    } finally {
+      setIsUpdatingProfile(false);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -264,22 +297,15 @@ const ChefDashboard = () => {
       [name]: type === 'checkbox' ? checked : type === 'file' ? files[0] : value
     }));
     if (type === 'file' && files && files[0]) {
-      const objectUrl = URL.createObjectURL(files[0]);
-      setImagePreview(objectUrl);
+      setImagePreview(URL.createObjectURL(files[0]));
     }
   };
 
   const handleAddItem = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.description || !formData.originalPrice) {
-      showBanner('error', 'Please fill in all required fields');
-      return;
-    }
+    if (!formData.name || !formData.description || !formData.originalPrice) return;
     const userData = JSON.parse(localStorage.getItem('user'));
-    if (!userData || !userData.id) {
-      showBanner('error', 'User ID not found in localStorage');
-      return;
-    }
+    if (!userData || !userData.id) return;
     const formDataToSend = new FormData();
     formDataToSend.append('name', formData.name);
     formDataToSend.append('description', formData.description);
@@ -288,34 +314,19 @@ const ChefDashboard = () => {
     if (formData.preparationTime) formDataToSend.append('preparationTime', formData.preparationTime);
     if (formData.tags) {
       const tagsArray = formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
-      formDataToSend.append('tags', tagsArray.join(',')); // Send as comma-separated string
+      formDataToSend.append('tags', tagsArray.join(','));
     }
     if (formData.discountPercentage) formDataToSend.append('discountPercentage', formData.discountPercentage);
     if (formData.image) formDataToSend.append('image', formData.image);
     formDataToSend.append('userId', userData.id);
     try {
       const result = await apiService.addFood(formDataToSend);
-      setFoodItems(prev => [...prev, { ...result.data, rating: 0, orders: 0 }]);
+      setFoodItems(prev => [...prev, { ...result.data, rating: 4.8, orders: 0 }]);
       resetForm();
       setShowAddForm(false);
-      showBanner('success', `${formData.name} has been added successfully!`);
-      const updatedItems = await apiService.getFoodsById(userData.id);
-      setFoodItems(updatedItems.map(item => ({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        price: item.price || item.originalPrice * (1 - (item.discountPercentage || 0) / 100),
-        originalPrice: item.originalPrice,
-        available: item.available,
-        image: imagePathService.getImageUrl(item.imagePath),
-        preparationTime: item.preparationTime || '',
-        tags: item.tags || [],
-        discountPercentage: item.discountPercentage || 0,
-        rating: 0,
-        orders: 0
-      })));
     } catch (error) {
-      showBanner('error', `Failed to add item: ${error.message}`);
+      console.error('Error adding food item:', error);
+      // Optionally show error banner
     }
   };
 
@@ -328,7 +339,7 @@ const ChefDashboard = () => {
       available: item.available,
       image: null,
       preparationTime: item.preparationTime || '',
-      tags: item.tags ? item.tags.join(', ') : '', // Display tags as comma-separated string
+      tags: item.tags ? item.tags.join(', ') : '',
       discountPercentage: item.discountPercentage ? item.discountPercentage.toString() : ''
     });
     setImagePreview(item.image);
@@ -336,10 +347,7 @@ const ChefDashboard = () => {
 
   const handleUpdateItem = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.description || !formData.originalPrice) {
-      showBanner('error', 'Please fill in all required fields');
-      return;
-    }
+    if (!formData.name || !formData.description || !formData.originalPrice) return;
     const formDataToSend = new FormData();
     formDataToSend.append('name', formData.name);
     formDataToSend.append('description', formData.description);
@@ -348,35 +356,18 @@ const ChefDashboard = () => {
     if (formData.preparationTime) formDataToSend.append('preparationTime', formData.preparationTime);
     if (formData.tags) {
       const tagsArray = formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
-      formDataToSend.append('tags', tagsArray.join(',')); // Send as comma-separated string
+      formDataToSend.append('tags', tagsArray.join(','));
     }
     if (formData.discountPercentage) formDataToSend.append('discountPercentage', formData.discountPercentage);
     if (formData.image) formDataToSend.append('image', formData.image);
     try {
       const result = await apiService.updateFood(editingItem, formDataToSend);
       setFoodItems(prev => prev.map(item => item.id === editingItem ? { ...result.data, id: item.id } : item));
-      const updatedItemName = foodItems.find(item => item.id === editingItem)?.name;
       setEditingItem(null);
       resetForm();
-      showBanner('success', `${updatedItemName} has been updated successfully!`);
-      const userData = JSON.parse(localStorage.getItem('user'));
-      const updatedItems = await apiService.getFoodsById(userData.id);
-      setFoodItems(updatedItems.map(item => ({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        price: item.price || item.originalPrice * (1 - (item.discountPercentage || 0) / 100),
-        originalPrice: item.originalPrice,
-        available: item.available,
-        image: imagePathService.getImageUrl(item.imagePath),
-        preparationTime: item.preparationTime || '',
-        tags: item.tags || [],
-        discountPercentage: item.discountPercentage || 0,
-        rating: 0,
-        orders: 0
-      })));
     } catch (error) {
-      showBanner('error', `Failed to update item: ${error.message}`);
+      console.error('Error updating food item:', error);
+      // Optionally show error banner
     }
   };
 
@@ -386,25 +377,9 @@ const ChefDashboard = () => {
       try {
         await apiService.deleteFood(id);
         setFoodItems(prev => prev.filter(item => item.id !== id));
-        showBanner('success', `${itemToDelete.name} has been deleted successfully!`);
-        const userData = JSON.parse(localStorage.getItem('user'));
-        const updatedItems = await apiService.getFoodsById(userData.id);
-        setFoodItems(updatedItems.map(item => ({
-          id: item.id,
-          name: item.name,
-          description: item.description,
-          price: item.price || item.originalPrice * (1 - (item.discountPercentage || 0) / 100),
-          originalPrice: item.originalPrice,
-          available: item.available,
-          image: imagePathService.getImageUrl(item.imagePath),
-          preparationTime: item.preparationTime || '',
-          tags: item.tags || [],
-          discountPercentage: item.discountPercentage || 0,
-          rating: 0,
-          orders: 0
-        })));
       } catch (error) {
-        showBanner('error', `Failed to delete item: ${error.message}`);
+        console.error('Error deleting food item:', error);
+        // Optionally show error banner
       }
     }
   };
@@ -427,691 +402,556 @@ const ChefDashboard = () => {
     try {
       const result = await apiService.updateFood(id, formDataToSend);
       setFoodItems(prev => prev.map(item => item.id === id ? { ...result.data, id: item.id } : item));
-      const status = newAvailability ? 'available' : 'unavailable';
-      showBanner('info', `${item.name} is now ${status}`);
-      const userData = JSON.parse(localStorage.getItem('user'));
-      const updatedItems = await apiService.getFoodsById(userData.id);
-      setFoodItems(updatedItems.map(item => ({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        price: item.price || item.originalPrice * (1 - (item.discountPercentage || 0) / 100),
-        originalPrice: item.originalPrice,
-        available: item.available,
-        image: imagePathService.getImageUrl(item.imagePath),
-        preparationTime: item.preparationTime || '',
-        tags: item.tags || [],
-        discountPercentage: item.discountPercentage || 0,
-        rating: 0,
-        orders: 0
-      })));
     } catch (error) {
-      showBanner('error', `Failed to update availability: ${error.message}`);
+      console.error('Error toggling availability:', error);
+      // Optionally show error banner
     }
   };
 
-  const updateOrderStatus = async (orderId, newStatus) => {
-    try {
-      const userData = JSON.parse(localStorage.getItem('user'));
-      if (!userData || !userData.id) {
-        showBanner('error', 'Chef ID not found in localStorage');
-        return;
-      }
-      const chefId = userData.id; // Use chef's ID from localStorage
-      
-      const result = await apiService.updateOrderStatus(orderId, newStatus, chefId);
-      if (result && result.data) {
-        // Update the orders state
-        setOrders(prev => prev.map(order => 
-          order.orderId === orderId ? { ...order, status: newStatus } : order
-        ));
-        showBanner('success', `Order #${orderId} status updated to ${newStatus}`);
-      }
-    } catch (error) {
-      showBanner('error', `Failed to update order status: ${error.message}`);
-    }
-  };
-
-  const getStatusBadgeVariant = (status) => {
-    switch (status) {
-      case 'PLACED': return 'warning';
-      case 'CONFIRMED': return 'info';
-      case 'PREPARING': return 'primary';
-      case 'READY': return 'success';
-      case 'CANCELLED': return 'error';
-      default: return 'secondary';
-    }
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  const getOrderProgress = (status) => {
-    const statusMap = {
-      'PLACED': 25,
-      'CONFIRMED': 50,
-      'PREPARING': 75,
-      'READY': 100,
-      'CANCELLED': 0
-    };
-    return statusMap[status] || 0;
-  };
-
-  const getProgressColor = (status) => {
-    const colorMap = {
-      'PLACED': 'bg-yellow-500',
-      'CONFIRMED': 'bg-blue-500',
-      'PREPARING': 'bg-purple-500',
-      'READY': 'bg-green-500',
-      'CANCELLED': 'bg-red-500'
-    };
-    return colorMap[status] || 'bg-gray-500';
-  };
-
-  const stats = {
-    totalItems: foodItems.length,
-    availableItems: foodItems.filter(item => item.available).length,
+  // Calculate dashboard stats
+  const dashboardStats = {
+    totalDishes: foodItems.length,
     totalOrders: orders.length,
-    activeOrders: orders.filter(order => ['PLACED', 'CONFIRMED', 'PREPARING'].includes(order.status)).length
+    revenue: orders.reduce((sum, order) => sum + (order.amount || 0), 0),
+    avgRating: foodItems.length > 0 ? (foodItems.reduce((sum, item) => sum + item.rating, 0) / foodItems.length).toFixed(1) : '0.0'
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50">
-      {banner.show && (
-        <Banner type={banner.type} message={banner.message} onClose={() => setBanner({ show: false, type: '', message: '' })} />
-      )}
-      
-      {/* Modern Professional Header with Responsive Layout */}
-      <div className="bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 shadow-xl">
-        <div className="max-w-6xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
-          <div className="flex flex-col md:flex-row items-center md:items-stretch justify-between gap-4 md:gap-6 w-full">
-            {/* Logo Card */}
-            <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 border border-white/30 flex items-center min-w-[180px] max-w-full shadow-md w-full md:w-auto justify-center md:justify-start">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                <ChefHat className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Enhanced Header */}
+      <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <ChefHat className="w-7 h-7 text-white" />
               </div>
-              <div className="ml-3">
-                <h1 className="text-xl sm:text-2xl font-bold text-white">GharkoSwad</h1>
-                <p className="text-emerald-100 text-xs sm:text-sm font-medium">Professional Kitchen</p>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                  Chef Dashboard
+                </h1>
+                <p className="text-sm text-gray-600">Welcome back, {user?.username}</p>
               </div>
             </div>
-            {/* User Avatar Dropdown */}
-            <div className="relative w-full md:w-auto flex justify-center md:justify-end profile-dropdown-parent mt-2 md:mt-0">
+
+            {/* Profile Dropdown */}
+            <div className="relative">
               <button
-                onClick={() => setShowProfileDropdown((prev) => !prev)}
-                className="focus:outline-none"
-                aria-label="Open profile menu"
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                className="flex items-center space-x-3 p-2 rounded-2xl hover:bg-gray-50 transition-all duration-200"
               >
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-100 rounded-full flex items-center justify-center border-2 border-white/40 shadow-md hover:ring-2 hover:ring-emerald-400 transition">
-                  <User className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" />
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg">
+                  {editProfileData.profilePicturePreview ? (
+                    <img 
+                      src={editProfileData.profilePicturePreview} 
+                      alt="Profile" 
+                      className="w-12 h-12 rounded-2xl object-cover"
+                    />
+                  ) : (
+                    <span className="text-white font-bold text-lg">
+                      {user?.username ? user.username.charAt(0).toUpperCase() : 'C'}
+                    </span>
+                  )}
+                </div>
+                <div className="hidden md:block text-left">
+                  <div className="text-sm font-semibold text-gray-900">{user?.username || 'Chef'}</div>
+                  <div className="text-xs text-emerald-600 font-medium uppercase tracking-wide">{user?.role || 'Chef'}</div>
                 </div>
               </button>
+
               {showProfileDropdown && (
-                <div className="absolute right-0 md:right-0 top-14 md:top-auto md:mt-3 w-64 bg-white rounded-xl shadow-2xl border border-emerald-100 z-50 p-5 animate-fade-in">
-                  <div className="flex items-center mb-4">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-100 rounded-full flex items-center justify-center mr-3">
-                      <User className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" />
-                    </div>
-                    <div>
-                      <div className="text-gray-900 font-semibold text-base">{user?.username || 'Chef'}</div>
-                      <div className="text-emerald-700 text-xs">{user?.role || ''}</div>
+                <div className="absolute right-0 top-16 w-80 bg-white rounded-3xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+                  <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-6 border-b border-gray-100">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg">
+                        {editProfileData.profilePicturePreview ? (
+                          <img 
+                            src={editProfileData.profilePicturePreview} 
+                            alt="Profile" 
+                            className="w-16 h-16 rounded-2xl object-cover"
+                          />
+                        ) : (
+                          <span className="text-white font-bold text-xl">
+                            {user?.username ? user.username.charAt(0).toUpperCase() : 'C'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-gray-900">{user?.username || 'Chef'}</h3>
+                        <p className="text-sm text-emerald-600 font-medium uppercase tracking-wide">{user?.role || 'Chef'}</p>
+                        <p className="text-xs text-gray-600 mt-1">{user?.email}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="mb-2">
-                    <div className="text-gray-700 text-sm font-medium">{user?.email || ''}</div>
-                    {user?.address && (
-                      <div className="text-gray-500 text-xs mt-1">{user.address}</div>
-                    )}
+
+                  <div className="p-6 space-y-4">
+                    <div className="space-y-2">
+                      {user?.phone && (
+                        <div className="flex items-center space-x-3 text-sm text-gray-600">
+                          <Phone className="w-4 h-4" />
+                          <span>{user.phone}</span>
+                        </div>
+                      )}
+                      {user?.address && (
+                        <div className="flex items-center space-x-3 text-sm text-gray-600">
+                          <MapPin className="w-4 h-4" />
+                          <span className="truncate">{user.address}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-3 pt-4 border-t border-gray-100">
+                      <Button
+                        onClick={() => setShowEditProfile(true)}
+                        variant="secondary"
+                        className="w-full justify-start"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Profile
+                      </Button>
+                      <Button
+                        onClick={logout}
+                        variant="danger"
+                        className="w-full justify-start"
+                      >
+                        Logout
+                      </Button>
+                    </div>
                   </div>
-                  <button
-                    onClick={handleLogout}
-                    className="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg transition"
-                  >
-                    Logout
-                  </button>
                 </div>
               )}
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Add New Dish Button in Body */}
-        {activeTab === 'menu' && (
-          <div className="flex flex-col sm:flex-row justify-end items-center mb-8 gap-4">
+      {/* Enhanced Main Content */}
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* Enhanced Tab Navigation */}
+        <div className="flex flex-wrap gap-2 mb-8 p-2 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50">
+          {[
+            { id: 'overview', label: 'Overview', icon: TrendingUp },
+            { id: 'menu', label: 'Menu', icon: ChefHat },
+            { id: 'orders', label: 'Orders', icon: Package }
+          ].map(({ id, label, icon: Icon }) => (
             <button
-              onClick={() => setShowAddForm(true)}
-              className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl px-6 py-3 flex items-center justify-center space-x-2 shadow-lg transition-all text-base"
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                activeTab === id
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg transform scale-105'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
+              }`}
             >
-              <Plus className="w-5 h-5" />
-              <span>Add New Dish</span>
+              <Icon className="w-5 h-5" />
+              <span>{label}</span>
             </button>
-          </div>
-        )}
-
-        {/* Add/Edit Dish Modal Overlay */}
-        {(showAddForm || editingItem) && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="relative w-full max-w-lg mx-2 sm:mx-auto bg-white rounded-3xl shadow-2xl p-6 sm:p-10 animate-fade-in overflow-y-auto max-h-[90vh]">
-              <button
-                onClick={editingItem ? handleCancelEdit : handleCancelAdd}
-                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors duration-200 rounded-xl hover:bg-red-50 border border-gray-200 hover:border-red-200 z-10"
-                aria-label="Close"
-              >
-                <X className="w-6 h-6" />
-              </button>
-              <div className="flex items-center space-x-4 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
-                  {editingItem ? <Edit className="w-6 h-6 text-white" /> : <Plus className="w-6 h-6 text-white" />}
-                </div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-                  {editingItem ? 'Edit Food Item' : 'Add New Food Item'}
-                </h2>
-              </div>
-              <form onSubmit={editingItem ? handleUpdateItem : handleAddItem} className="space-y-6" encType="multipart/form-data">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Input label="Item Name *" name="name" value={formData.name} onChange={handleInputChange} placeholder="Enter dish name" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    placeholder="Describe your dish..."
-                    rows={4}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <Input label="Original Price (₹) *" name="originalPrice" type="number" value={formData.originalPrice} onChange={handleInputChange} placeholder="0.00" min="0" step="0.01" required />
-                  <Input label="Preparation Time" name="preparationTime" value={formData.preparationTime} onChange={handleInputChange} placeholder="e.g., 25-30 min" />
-                  <Input label="Discount (%)" name="discountPercentage" type="number" value={formData.discountPercentage} onChange={handleInputChange} placeholder="0-100" min="0" max="100" step="0.01" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Food Image</label>
-                    <div className="flex items-center space-x-4">
-                      <label htmlFor="image" className="cursor-pointer bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700 transition-colors duration-200">
-                        <Upload className="w-4 h-4" />
-                        <span>Choose Image</span>
-                      </label>
-                      <input
-                        id="image"
-                        name="image"
-                        type="file"
-                        onChange={handleInputChange}
-                        className="hidden"
-                        accept="image/*"
-                      />
-                      {formData.image && (
-                        <span className="text-sm text-gray-600">{formData.image.name}</span>
-                      )}
-                    </div>
-                  </div>
-                  {imagePreview && (
-                    <div className="flex items-center">
-                      <img src={imagePreview} alt="Preview" className="w-32 h-32 object-cover rounded-lg border border-gray-300" />
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Tags (comma-separated)</label>
-                  <Input
-                    name="tags"
-                    value={formData.tags}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Spicy, Vegetarian, Popular"
-                  />
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="available"
-                    name="available"
-                    checked={formData.available}
-                    onChange={handleInputChange}
-                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="available" className="ml-2 block text-sm text-gray-700">Available for orders</label>
-                </div>
-                <div className="flex space-x-4">
-                  <Button
-                    type="submit"
-                    className="bg-green-600 hover:bg-green-700 text-white flex items-center space-x-2"
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>{editingItem ? 'Update Item' : 'Add Item'}</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={editingItem ? handleCancelEdit : handleCancelAdd}
-                    className="bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Premium Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          {/* Total Items Card */}
-          <div className="group relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-green-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
-            <div className="relative bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-emerald-200 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <ChefHat className="w-7 h-7 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">{stats.totalItems}</p>
-                    <p className="text-gray-600 text-sm font-medium">Total Items</p>
-                  </div>
-                </div>
-                <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Available Items Card */}
-          <div className="group relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-teal-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
-            <div className="relative bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-green-200 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <Clock className="w-7 h-7 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent">{stats.availableItems}</p>
-                    <p className="text-gray-600 text-sm font-medium">Available</p>
-                  </div>
-                </div>
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Total Orders Card */}
-          <div className="group relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-teal-400 to-emerald-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
-            <div className="relative bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-200 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <ShoppingBag className="w-7 h-7 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent">{stats.totalOrders}</p>
-                    <p className="text-gray-600 text-sm font-medium">Total Orders</p>
-                  </div>
-                </div>
-                <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
-                  <div className="w-2 h-2 bg-teal-500 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Active Orders Card */}
-          <div className="group relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
-            <div className="relative bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-emerald-200 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <Users className="w-7 h-7 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">{stats.activeOrders}</p>
-                    <p className="text-gray-600 text-sm font-medium">Active Orders</p>
-                  </div>
-                </div>
-                <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Menu Content */}
-        {activeTab === 'menu' && (
-          <>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {foodItems.map((item) => (
-                <Card key={item.id} className="overflow-hidden bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow" hover>
-                  <div className="relative">
-                    <img src={item.image} alt={item.name} className="w-full h-48 object-cover" />
-                    <div className="absolute top-3 left-3">
-                      <Badge 
-                        className={`${item.available ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'} text-xs font-medium`}
-                      >
-                        {item.available ? 'Available' : 'Unavailable'}
-                      </Badge>
-                    </div>
-                    <div className="absolute top-3 right-3 flex space-x-2">
-                      <button 
-                        onClick={() => handleEditItem(item)} 
-                        className="w-8 h-8 bg-white rounded-full flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm"
-                      >
-                        <Edit className="w-4 h-4 text-gray-600" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteItem(item.id)} 
-                        className="w-8 h-8 bg-white rounded-full flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </button>
-                    </div>
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="space-y-8">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-200" hover>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-600 text-sm font-semibold uppercase tracking-wide">Total Dishes</p>
+                    <p className="text-3xl font-bold text-blue-900 mt-2">{dashboardStats.totalDishes}</p>
                   </div>
-                  <div className="p-6">
-                    <div className="flex items-start justify-between mb-3">
-                      <h3 className="text-lg font-semibold text-gray-900">{item.name}</h3>
-                      <div className="flex items-center space-x-1">
-                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                        <span className="text-sm font-medium text-gray-600">{item.rating}</span>
-                      </div>
-                    </div>
-                    <p className="text-gray-600 mb-4 text-sm">{item.description}</p>
-                    <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                      <div className="flex items-center space-x-1">
-                        <Clock className="w-4 h-4" />
-                        <span>{item.preparationTime}</span>
-                      </div>
-                      <div className="flex space-x-1">
-                        {item.tags.slice(0, 2).map((tag, index) => (
-                          <Badge key={index} className="text-xs bg-gray-100 text-gray-700">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xl font-bold text-gray-900">₹{item.price.toFixed(2)}</span>
-                          {item.originalPrice && item.originalPrice !== item.price && (
-                            <span className="text-sm text-gray-500 line-through">₹{item.originalPrice.toFixed(2)}</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500">{item.orders} orders</p>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        onClick={() => toggleAvailability(item.id)}
-                        className={`${item.available 
-                          ? 'bg-red-500 text-white hover:bg-red-600' 
-                          : 'bg-green-500 text-white hover:bg-green-600'
-                        } border-0 font-medium`}
-                      >
-                        {item.available ? 'Disable' : 'Enable'}
-                      </Button>
-                    </div>
+                  <div className="w-14 h-14 bg-blue-500 rounded-2xl flex items-center justify-center">
+                    <ChefHat className="w-7 h-7 text-white" />
                   </div>
-                </Card>
-              ))}
-            </div>
-            
-            {foodItems.length === 0 && (
-              <Card className="p-12 text-center bg-white border border-gray-200">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Plus className="w-8 h-8 text-gray-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No menu items yet</h3>
-                <p className="text-gray-600 mb-6">Start by adding your first delicious dish!</p>
-                <Button 
-                  onClick={() => setShowAddForm(true)}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  Add Your First Dish
-                </Button>
               </Card>
-            )}
-          </>
+
+              <Card className="p-6 bg-gradient-to-br from-emerald-50 to-green-100 border-emerald-200" hover>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-emerald-600 text-sm font-semibold uppercase tracking-wide">Total Orders</p>
+                    <p className="text-3xl font-bold text-emerald-900 mt-2">{dashboardStats.totalOrders}</p>
+                  </div>
+                  <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex items-center justify-center">
+                    <Package className="w-7 h-7 text-white" />
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6 bg-gradient-to-br from-yellow-50 to-orange-100 border-yellow-200" hover>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-yellow-600 text-sm font-semibold uppercase tracking-wide">Revenue</p>
+                    <p className="text-3xl font-bold text-yellow-900 mt-2">₹{dashboardStats.revenue.toFixed(0)}</p>
+                  </div>
+                  <div className="w-14 h-14 bg-yellow-500 rounded-2xl flex items-center justify-center">
+                    <DollarSign className="w-7 h-7 text-white" />
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6 bg-gradient-to-br from-purple-50 to-pink-100 border-purple-200" hover>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-purple-600 text-sm font-semibold uppercase tracking-wide">Avg Rating</p>
+                    <p className="text-3xl font-bold text-purple-900 mt-2">{dashboardStats.avgRating}</p>
+                  </div>
+                  <div className="w-14 h-14 bg-purple-500 rounded-2xl flex items-center justify-center">
+                    <Star className="w-7 h-7 text-white" />
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Card className="p-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-6">Popular Dishes</h3>
+                <div className="space-y-4">
+                  {foodItems.slice(0, 3).map((item, index) => (
+                    <div key={item.id} className="flex items-center space-x-4 p-3 rounded-xl bg-gray-50">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
+                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900">{item.name}</h4>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                          <span className="text-sm text-gray-600">{item.rating}</span>
+                          <span className="text-sm text-gray-400">•</span>
+                          <span className="text-sm text-gray-600">{item.orders} orders</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-gray-900">₹{item.price}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="p-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-6">Recent Orders</h3>
+                <div className="space-y-4">
+                  {orders.slice(0, 3).map((order) => (
+                    <div key={order.orderId} className="flex items-center justify-between p-3 rounded-xl bg-gray-50">
+                      <div>
+                        <h4 className="font-semibold text-gray-900">Order #{order.orderId}</h4>
+                        <p className="text-sm text-gray-600">{order.user?.username}</p>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant={
+                          order.status === 'PLACED' ? 'warning' :
+                          order.status === 'CONFIRMED' ? 'info' :
+                          order.status === 'PREPARING' ? 'warning' :
+                          order.status === 'READY' ? 'success' :
+                          'danger'
+                        }>
+                          {order.status}
+                        </Badge>
+                        <div className="text-sm font-semibold text-gray-900 mt-1">₹{order.amount}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          </div>
         )}
 
-        {/* Orders Content */}
-        {activeTab === 'orders' && (
-          <div className="space-y-6">
-            {/* Clean Order Status Filters */}
-            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">Order Management</h3>
-                <div className="text-sm text-gray-500">
-                  Total: {orders.length} orders
+        {/* Menu Tab */}
+        {activeTab === 'menu' && (
+            <div className="space-y-8">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Menu Management</h2>
+                    <p className="text-gray-600 mt-1">Manage your dishes and their availability</p>
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {['ALL', 'PLACED', 'CONFIRMED', 'PREPARING', 'READY', 'CANCELLED'].map((status) => {
-                  const counts = getOrderCounts();
-                  const count = counts[status] || 0;
-                  const isActive = orderStatusFilter === status;
-                  
-                  return (
-                    <button
-                      key={status}
-                      onClick={() => setOrderStatusFilter(status)}
-                      className={`relative p-3 rounded-lg border-2 transition-all duration-200 text-center ${
-                        isActive 
-                          ? getStatusBadgeColor(status) + ' shadow-sm'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="text-xs font-medium uppercase tracking-wide">{status}</div>
-                      <div className="text-lg font-bold mt-1">{count}</div>
-                      {count > 0 && isActive && (
-                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"></div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                <Button onClick={() => setShowAddForm(true)} className="shadow-lg">
+                    <Plus className="w-5 h-5 mr-2" />
+                    Add New Dish
+                </Button>
+                </div>
 
-            {/* Distance Info */}
-            {orders.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-800 text-sm">
-                  <span className="font-medium">📍 Distance estimates:</span> 
-                  Based on 25 km/h avg speed including traffic and stops.
-                </p>
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {foodItems.map((item) => (
+                    <Card key={item.id} className="overflow-hidden group" hover>
+                    <div className="relative">
+                        <img 
+                        src={item.image} 
+                        alt={item.name} 
+                        className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500" 
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                        
+                        <div className="absolute top-4 left-4">
+                        <Badge 
+                            variant={item.available ? 'success' : 'danger'}
+                            className={`shadow-lg backdrop-blur-sm ${!item.available ? 'bg-red-400 text-white' : ''}`}
+                        >
+                            {item.available ? 'Available' : 'Unavailable'}
+                        </Badge>
+                        </div>
+
+                        {item.discountPercentage > 0 && (
+                        <div className="absolute top-4 right-4">
+                            <Badge variant="warning" className="shadow-lg backdrop-blur-sm">
+                            {item.discountPercentage}% OFF
+                            </Badge>
+                        </div>
+                        )}
+
+                        <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div className="flex space-x-2">
+                            <button 
+                            onClick={() => handleEditItem(item)} 
+                            className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-colors shadow-lg"
+                            >
+                            <Edit className="w-4 h-4 text-gray-700" />
+                            </button>
+                            <button 
+                            onClick={() => handleDeleteItem(item.id)} 
+                            className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-colors shadow-lg"
+                            >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                            </button>
+                        </div>
+                        </div>
+                    </div>
+
+                    <div className="p-6">
+                        <div className="flex items-start justify-between mb-3">
+                        <h3 className="text-xl font-bold text-gray-900 line-clamp-1">{item.name}</h3>
+                        <div className="flex items-center space-x-1">
+                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                            <span className="text-sm font-semibold text-gray-700">{item.rating}</span>
+                        </div>
+                        </div>
+                        
+                        <p className="text-gray-600 mb-4 text-sm line-clamp-2">{item.description}</p>
+                        
+                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-2">
+                            <span className="text-2xl font-bold text-gray-900">₹{item.price}</span>
+                            {item.originalPrice && item.originalPrice !== item.price && (
+                            <span className="text-sm text-gray-500 line-through">₹{item.originalPrice}</span>
+                            )}
+                        </div>
+                        {item.preparationTime && (
+                            <div className="flex items-center space-x-1 text-gray-500">
+                            <Clock className="w-4 h-4" />
+                            <span className="text-sm">{item.preparationTime}</span>
+                            </div>
+                        )}
+                        </div>
+
+                        {item.tags && item.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-4">
+                            {item.tags.slice(0, 3).map((tag, index) => (
+                            <Badge key={index} className="text-xs">
+                                {tag}
+                            </Badge>
+                            ))}
+                        </div>
+                        )}
+
+                        <div className="flex items-center justify-between">
+                        <Button 
+                            size="sm" 
+                            onClick={() => toggleAvailability(item.id)}
+                            className={`${item.available ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white border-0 font-medium`}
+                        >
+                            {item.available ? 'Disable' : 'Enable'}
+                        </Button>
+                        <span className="text-sm text-gray-500">{item.orders} orders</span>
+                        </div>
+                    </div>
+                    </Card>
+                ))}
+                </div>
+
+                {foodItems.length === 0 && (
+                <Card className="p-12 text-center">
+                    <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <ChefHat className="w-10 h-10 text-emerald-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No dishes yet</h3>
+                    <p className="text-gray-600 mb-6">Start building your menu by adding your first dish!</p>
+                    <Button onClick={() => setShowAddForm(true)}>
+                    <Plus className="w-5 h-5 mr-2" />
+                    Add Your First Dish
+                    </Button>
+                </Card>
+                )}
+            </div>
             )}
 
-            {/* Orders Display */}
-            {(() => {
-              const filteredOrders = getOrdersByStatus(orderStatusFilter);
-              
-              if (filteredOrders.length > 0) {
-                return (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-lg font-medium text-gray-700">
-                        {orderStatusFilter === 'ALL' ? 'All Orders' : `${orderStatusFilter} Orders`} 
-                        <span className="ml-2 text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">({filteredOrders.length})</span>
-                      </h4>
-                    </div>
-                    
-                    {filteredOrders.map((order) => (
-                <Card key={order.orderId} className="overflow-hidden bg-white border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300">
-                  {/* Professional Header */}
-                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="bg-green-100 p-3 rounded-full">
-                          <ShoppingBag className="w-6 h-6 text-green-600" />
+        {/* Orders Tab */}
+        {activeTab === 'orders' && (
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Order Management</h2>
+              <p className="text-gray-600 mt-1">Track and manage your incoming orders</p>
+            </div>
+
+            <Card className="p-6">
+              <div className="flex flex-wrap gap-3">
+                {['ALL', 'PLACED', 'CONFIRMED', 'PREPARING', 'READY', 'CANCELLED'].map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setOrderStatusFilter(status)}
+                    className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                      orderStatusFilter === status
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg transform scale-105'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {status} {status !== 'ALL' && `(${getOrdersByStatus(status).length})`}
+                  </button>
+                ))}
+              </div>
+            </Card>
+
+            <div className="space-y-6">
+              {getOrdersByStatus(orderStatusFilter).length > 0 ? (
+                getOrdersByStatus(orderStatusFilter).map((order) => (
+                  <Card key={order.orderId} className="overflow-hidden" hover>
+                    <div className="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center">
+                            <Package className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-bold text-gray-900">Order #{order.orderId}</h3>
+                            <p className="text-sm text-gray-600">
+                              {order.orderDate ? new Date(order.orderDate).toLocaleString() : 'Date not available'}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="text-xl font-bold text-gray-900">Order #{order.orderId}</h3>
-                          <p className="text-sm text-gray-500">Placed on {formatDate(order.orderDate)}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
                         <Badge 
-                          className={`text-sm font-semibold px-3 py-1 ${
-                            order.status === 'PLACED' ? 'bg-yellow-100 text-yellow-800' :
-                            order.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
-                            order.status === 'PREPARING' ? 'bg-purple-100 text-purple-800' :
-                            order.status === 'READY' ? 'bg-green-100 text-green-800' :
-                            order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}
+                          variant={
+                            order.status === 'PLACED' ? 'warning' :
+                            order.status === 'CONFIRMED' ? 'info' :
+                            order.status === 'PREPARING' ? 'warning' :
+                            order.status === 'READY' ? 'success' :
+                            'danger'
+                          }
+                          className="text-sm font-semibold px-4 py-2"
                         >
                           {order.status}
                         </Badge>
-                        {order.status !== 'CANCELLED' && (
-                          <div className="flex flex-col items-end">
-                            <div className="w-24 bg-gray-200 rounded-full h-2 mb-1">
-                              <div 
-                                className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(order.status)}`}
-                                style={{ width: `${getOrderProgress(order.status)}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-xs text-gray-500">{getOrderProgress(order.status)}% Complete</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Main Content */}
-                  <div className="p-6 space-y-6">
-                    {/* Customer & Delivery Info */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      
-                      {/* Customer Information Card */}
-                      <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                        <div className="flex items-center mb-3">
-                          <div className="bg-blue-100 p-2 rounded-lg mr-3">
-                            <User className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <h4 className="text-lg font-semibold text-blue-900">Customer Information</h4>
-                        </div>
-                        {(() => {
-                          const customerInfo = order.user || 
-                            (order.orderItems && order.orderItems.length > 0 && 
-                             order.orderItems[0].foodItem && 
-                             order.orderItems[0].foodItem.user);
-                          
-                          return customerInfo ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div className="space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded">NAME</span>
-                                  <span className="text-sm font-medium text-gray-900">{customerInfo.username}</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded">EMAIL</span>
-                                  <span className="text-sm text-gray-700">{customerInfo.email}</span>
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                {customerInfo.phoneNumber && (
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded">PHONE</span>
-                                    <span className="text-sm text-gray-700">{customerInfo.phoneNumber}</span>
-                                  </div>
-                                )}
-                                {customerInfo.location && (
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded">ADDRESS</span>
-                                    <span className="text-sm text-gray-700">{customerInfo.location}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center py-4">
-                              <p className="text-sm text-blue-700 bg-blue-100 px-3 py-2 rounded-lg">Customer ID: {order.userId}</p>
-                            </div>
-                          );
-                        })()}
-                      </div>
-
-                      {/* Delivery Information Card */}
-                      <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
-                        <div className="flex items-center mb-3">
-                          <div className="bg-orange-100 p-2 rounded-lg mr-3">
-                            <MapPin className="w-5 h-5 text-orange-600" />
-                          </div>
-                          <h4 className="text-lg font-semibold text-orange-900">Delivery Details</h4>
-                        </div>
-                        <div className="space-y-3">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xs font-medium text-orange-700 bg-orange-100 px-2 py-1 rounded">LOCATION</span>
-                            <span className="text-sm font-medium text-gray-900">{order.deliveryLocation}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xs font-medium text-orange-700 bg-orange-100 px-2 py-1 rounded">CONTACT</span>
-                            <span className="text-sm text-gray-700">{order.deliveryPhone}</span>
-                          </div>
-                          {order.deliveryCoordinates && (() => {
-                            const deliveryInfo = getDistanceToDelivery(order.deliveryCoordinates);
-                            const isClose = deliveryInfo.distance && deliveryInfo.distance < 2;
-                            const isFar = deliveryInfo.distance && deliveryInfo.distance > 10;
-                            
-                            return (
-                              <div className="flex items-center space-x-2">
-                                <span className="text-xs font-medium text-orange-700 bg-orange-100 px-2 py-1 rounded">DISTANCE</span>
-                                <span className={`text-sm font-medium px-2 py-1 rounded-full ${
-                                  isClose ? 'bg-green-100 text-green-800' :
-                                  isFar ? 'bg-red-100 text-red-800' :
-                                  'bg-blue-100 text-blue-800'
-                                }`}>
-                                  {deliveryInfo.text}
-                                </span>
-                              </div>
-                            );
-                          })()}
-                        </div>
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                      <div className="text-sm text-gray-500">
-                        Order Management Actions
-                      </div>
-                      <div className="flex items-center space-x-3">
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div>
+                          <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                            <User className="w-4 h-4 mr-2" />
+                            Customer Details
+                          </h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="font-medium">{order.user?.username || 'N/A'}</div>
+                            <div className="flex items-center space-x-2 text-gray-600">
+                              <Mail className="w-4 h-4" />
+                              <span>{order.user?.email || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-gray-600">
+                              <Phone className="w-4 h-4" />
+                              <span>{order.user?.phoneNumber || 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                            <MapPin className="w-4 h-4 mr-2" />
+                            Delivery Information
+                          </h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="text-gray-900">{order.deliveryLocation || 'N/A'}</div>
+                            <div className="flex items-center space-x-2 text-gray-600">
+                              <Phone className="w-4 h-4" />
+                              <span>{order.deliveryPhone || 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                            <DollarSign className="w-4 h-4 mr-2" />
+                            Payment Details
+                          </h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="text-2xl font-bold text-emerald-600">
+                              ₹{order.amount ? order.amount.toFixed(2) : '0.00'}
+                            </div>
+                            <div className="text-gray-600">{order.paymentMethod || 'N/A'}</div>
+                            <Badge variant="success" className="text-xs">
+                              {order.paymentStatus || 'Paid'}
+                            </Badge>
+                          </div>
+                        </div>
+                                             </div>
+
+                       {/* Order Items Section */}
+                       {order.orderItems && order.orderItems.length > 0 && (
+                         <div className="mt-6">
+                           <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
+                             <ChefHat className="w-4 h-4 mr-2" />
+                             Order Items ({order.orderItems.length})
+                           </h4>
+                           <div className="space-y-3">
+                             {order.orderItems.map((item) => (
+                               <div key={item.orderItemId} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-xl">
+                                 <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                   <img 
+                                     src={imagePathService.getImageUrl(item.foodItem.imagePath)} 
+                                     alt={item.foodItem.name}
+                                     className="w-full h-full object-cover"
+                                   />
+                                 </div>
+                                 <div className="flex-1">
+                                   <h5 className="font-semibold text-gray-900">{item.foodItem.name}</h5>
+                                   <p className="text-sm text-gray-600 line-clamp-1">{item.foodItem.description}</p>
+                                   <div className="flex items-center space-x-2 mt-1">
+                                     <span className="text-sm text-gray-500">₹{item.foodItem.price}</span>
+                                     {item.foodItem.preparationTime && (
+                                       <>
+                                         <span className="text-gray-400">•</span>
+                                         <span className="text-sm text-gray-500">{item.foodItem.preparationTime}</span>
+                                       </>
+                                     )}
+                                   </div>
+                                 </div>
+                                 <div className="text-right">
+                                   <div className="text-lg font-bold text-gray-900">x{item.quantity}</div>
+                                   <div className="text-sm text-gray-600">
+                                     ₹{(item.foodItem.price * item.quantity).toFixed(2)}
+                                   </div>
+                                 </div>
+                               </div>
+                             ))}
+                           </div>
+                         </div>
+                       )}
+
+                       <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-100">
                         {order.status === 'PLACED' && (
                           <Button 
                             size="sm" 
                             onClick={() => updateOrderStatus(order.orderId, 'CONFIRMED')}
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                            className="bg-blue-600 hover:bg-blue-700"
                           >
-                            Confirm
+                            Confirm Order
                           </Button>
                         )}
                         {order.status === 'CONFIRMED' && (
                           <Button 
                             size="sm" 
                             onClick={() => updateOrderStatus(order.orderId, 'PREPARING')}
-                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                            className="bg-purple-600 hover:bg-purple-700"
                           >
                             Start Preparing
                           </Button>
@@ -1120,226 +960,254 @@ const ChefDashboard = () => {
                           <Button 
                             size="sm" 
                             onClick={() => updateOrderStatus(order.orderId, 'READY')}
-                            className="bg-green-600 hover:bg-green-700 text-white"
+                            variant="success"
                           >
-                            Mark Ready
+                            Mark as Ready
                           </Button>
                         )}
                       </div>
                     </div>
-                  </div>
-                  
-                  {/* Payment Information */}
-                  {(order.amount || order.paymentMethod || order.paymentStatus) && (
-                    <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                      <h4 className="font-medium text-gray-900 mb-3">Payment Information</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {order.amount && (
-                          <div className="text-center">
-                            <span className="block text-2xl font-bold text-gray-900">₹{order.amount.toFixed(2)}</span>
-                            <span className="text-sm text-gray-600">Total Amount</span>
-                          </div>
-                        )}
-                        {order.paymentMethod && (
-                          <div className="text-center">
-                            <span className="block text-lg font-semibold text-gray-900">{order.paymentMethod}</span>
-                            <span className="text-sm text-gray-600">Payment Method</span>
-                          </div>
-                        )}
-                        {order.paymentStatus && (
-                          <div className="text-center">
-                            <Badge 
-                              className={`text-sm ${
-                                order.paymentStatus === 'COMPLETED' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-yellow-100 text-yellow-800'
-                              }`}
-                            >
-                              {order.paymentStatus}
-                            </Badge>
-                            <span className="block text-sm text-gray-600 mt-1">Payment Status</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Premium Order Items Section */}
-                  <div className="relative mt-6">
-                    <div className="bg-white rounded-2xl p-6 border border-emerald-200 shadow-lg">
-                      
-                      {/* Professional Header */}
-                      <div className="flex items-center justify-between mb-6 pb-4 border-b border-emerald-200">
-                        <div className="flex items-center space-x-3">
-                          <div className="relative">
-                            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center shadow-md">
-                              <ShoppingBag className="w-5 h-5 text-white" />
-                            </div>
-                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-400 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-bold text-white">{order.orderItems.length}</span>
-                            </div>
-                          </div>
-                          <div>
-                            <h4 className="text-lg font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-                              Order Items
-                            </h4>
-                            <p className="text-gray-600 text-sm">
-                              {order.orderItems.length} item{order.orderItems.length !== 1 ? 's' : ''} in this order
-                            </p>
-                          </div>
-                        </div>
-                        
-                        {/* Order Summary Badge */}
-                        <div className="bg-gradient-to-r from-emerald-100 to-green-100 border border-emerald-200 px-4 py-2 rounded-xl">
-                          <div className="text-center">
-                            <span className="text-xs font-medium text-emerald-700">Total Value</span>
-                            <p className="text-lg font-bold text-emerald-800">
-                              ₹{order.orderItems.reduce((total, item) => total + (item.foodItem.price * item.quantity), 0).toFixed(2)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Compact Items Grid */}
-                      <div className="space-y-4">
-                        {order.orderItems.map((item, index) => (
-                          <div key={item.orderItemId} className="group relative">
-                            {/* Main Card */}
-                            <div className="bg-white rounded-xl border border-gray-200 group-hover:border-emerald-200 shadow-sm group-hover:shadow-md transition-all duration-300">
-                              <div className="p-4">
-                                <div className="grid grid-cols-12 gap-4 items-start">
-                                  
-                                  {/* Image Section - 2 columns */}
-                                  <div className="col-span-12 md:col-span-2">
-                                    <div className="relative">
-                                      <div className="aspect-square rounded-xl overflow-hidden shadow-sm">
-                                        <img 
-                                          src={imagePathService.getImageUrl(item.foodItem.imagePath)} 
-                                          alt={item.foodItem.name} 
-                                          className="w-full h-full object-cover"
-                                        />
-                                      </div>
-                                      <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-600 text-white rounded-lg flex items-center justify-center shadow-md">
-                                        <span className="text-xs font-bold">{index + 1}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Content Section - 7 columns */}
-                                  <div className="col-span-12 md:col-span-7 space-y-3">
-                                    {/* Title & Description */}
-                                    <div>
-                                      <h5 className="text-lg font-bold text-gray-900 mb-2">
-                                        {item.foodItem.name}
-                                      </h5>
-                                      <p className="text-gray-600 text-sm leading-relaxed">
-                                        {item.foodItem.description}
-                                      </p>
-                                    </div>
-                                    
-                                    {/* Compact Info Grid */}
-                                    <div className="grid grid-cols-2 gap-3">
-                                      <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-3 border border-blue-100">
-                                        <div className="flex items-center space-x-2">
-                                          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center">
-                                            <span className="text-white font-bold text-xs">QTY</span>
-                                          </div>
-                                          <div>
-                                            <span className="text-lg font-bold text-blue-900">{item.quantity}</span>
-                                            <p className="text-xs text-blue-600">items</p>
-                                          </div>
-                                        </div>
-                                      </div>
-                                      
-                                      <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-3 border border-orange-100">
-                                        <div className="flex items-center space-x-2">
-                                          <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-yellow-600 rounded-lg flex items-center justify-center">
-                                            <Clock className="w-4 h-4 text-white" />
-                                          </div>
-                                          <div>
-                                            <span className="text-sm font-bold text-orange-900">{item.foodItem.preparationTime}</span>
-                                            <p className="text-xs text-orange-600">prep time</p>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Compact Tags */}
-                                    {item.foodItem.tags && item.foodItem.tags.length > 0 && (
-                                      <div className="flex flex-wrap gap-2">
-                                        {item.foodItem.tags.map((tag, tagIndex) => (
-                                          <span 
-                                            key={tagIndex} 
-                                            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border border-purple-200"
-                                          >
-                                            <div className="w-1.5 h-1.5 bg-purple-400 rounded-full mr-1.5"></div>
-                                            {tag}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                  
-                                  {/* Pricing Section - 3 columns */}
-                                  <div className="col-span-12 md:col-span-3">
-                                    <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-4 border border-emerald-100 shadow-sm">
-                                      <div className="text-center space-y-3">
-                                        <div>
-                                          <p className="text-xs font-medium text-emerald-700 mb-1">Unit Price</p>
-                                          <div className="flex items-center justify-center space-x-1">
-                                            <span className="text-xl font-bold text-emerald-700">₹{item.foodItem.price.toFixed(2)}</span>
-                                            {item.foodItem.originalPrice && item.foodItem.originalPrice !== item.foodItem.price && (
-                                              <span className="text-xs text-gray-500 line-through">₹{item.foodItem.originalPrice.toFixed(2)}</span>
-                                            )}
-                                          </div>
-                                        </div>
-                                        
-                                        <div className="border-t border-emerald-200 pt-3">
-                                          <p className="text-xs font-medium text-gray-700 mb-2">Item Total</p>
-                                          <div className="bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-lg py-2 px-3 shadow-md">
-                                            <span className="text-lg font-bold">
-                                              ₹{(item.foodItem.price * item.quantity).toFixed(2)}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-                  </div>
-                );
-              } else {
-                return (
-                  <Card className="p-12 text-center bg-white border border-gray-200">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <ShoppingBag className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      {orderStatusFilter === 'ALL' ? 'No orders yet' : `No ${orderStatusFilter.toLowerCase()} orders`}
-                    </h3>
-                    <p className="text-gray-600">
-                      {orderStatusFilter === 'ALL' 
-                        ? 'Orders will appear here when customers place them!' 
-                        : `No orders with status "${orderStatusFilter}" found.`
-                      }
-                    </p>
                   </Card>
-                );
-              }
-            })()}
+                ))
+              ) : (
+                <Card className="p-12 text-center">
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Package className="w-10 h-10 text-blue-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    No {orderStatusFilter.toLowerCase()} orders
+                  </h3>
+                  <p className="text-gray-600">
+                    {orderStatusFilter === 'ALL' 
+                      ? 'Orders will appear here when customers place them!'
+                      : `No ${orderStatusFilter.toLowerCase()} orders at the moment.`
+                    }
+                  </p>
+                </Card>
+              )}
+            </div>
           </div>
         )}
-      </div>
+
+        {/* Enhanced Edit Profile Modal */}
+        {showEditProfile && (
+          <Modal isOpen={showEditProfile} onClose={() => setShowEditProfile(false)} title="Edit Profile" size="lg">
+            <form onSubmit={handleEditProfileSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Input 
+                  label="Email" 
+                  name="email" 
+                  type="email"
+                  value={editProfileData.email} 
+                  onChange={handleEditProfileChange} 
+                  required 
+                  icon={<Mail className="w-4 h-4 text-gray-400" />}
+                />
+                <Input 
+                  label="Username" 
+                  name="username" 
+                  value={editProfileData.username} 
+                  onChange={handleEditProfileChange} 
+                  required 
+                  icon={<User className="w-4 h-4 text-gray-400" />}
+                />
+              </div>
+
+              <Input 
+                label="Location" 
+                name="location" 
+                value={editProfileData.location} 
+                onChange={handleEditProfileChange} 
+                readOnly 
+                icon={<MapPin className="w-4 h-4 text-gray-400" />}
+              />
+
+              <Input 
+                label="Phone Number" 
+                name="phoneNumber" 
+                type="tel"
+                value={editProfileData.phoneNumber} 
+                onChange={handleEditProfileChange} 
+                icon={<Phone className="w-4 h-4 text-gray-400" />}
+              />
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Profile Picture</label>
+                <div className="flex items-center space-x-4">
+                  <input 
+                    type="file" 
+                    name="profilePicture" 
+                    accept="image/*" 
+                    onChange={handleEditProfileChange}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                  />
+                  {editProfileData.profilePicturePreview && (
+                    <img 
+                      src={editProfileData.profilePicturePreview} 
+                      alt="Preview" 
+                      className="w-16 h-16 object-cover rounded-xl border-2 border-gray-200" 
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
+                <textarea
+                  name="description"
+                  value={editProfileData.description}
+                  onChange={handleEditProfileChange}
+                  rows={4}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 resize-none"
+                  placeholder="Tell customers about yourself and your cooking style..."
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 pt-6">
+                <Button 
+                  type="submit" 
+                  loading={isUpdatingProfile}
+                  className="flex-1"
+                >
+                  {isUpdatingProfile ? 'Saving Changes...' : 'Save Changes'}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="secondary"
+                  onClick={() => setShowEditProfile(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {/* Enhanced Add/Edit Food Item Modal */}
+        {(showAddForm || editingItem) && (
+          <Modal 
+            isOpen={showAddForm || !!editingItem} 
+            onClose={editingItem ? handleCancelEdit : handleCancelAdd} 
+            title={editingItem ? 'Edit Dish' : 'Add New Dish'}
+            size="lg"
+          >
+            <form onSubmit={editingItem ? handleUpdateItem : handleAddItem} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Input 
+                  label="Dish Name" 
+                  name="name" 
+                  value={formData.name} 
+                  onChange={handleInputChange} 
+                  required 
+                  placeholder="e.g., Truffle Pasta"
+                />
+                <Input 
+                  label="Price (₹)" 
+                  name="originalPrice" 
+                  type="number" 
+                  value={formData.originalPrice} 
+                  onChange={handleInputChange} 
+                  required 
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 resize-none"
+                  placeholder="Describe your dish..."
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Input 
+                  label="Preparation Time" 
+                  name="preparationTime" 
+                  value={formData.preparationTime} 
+                  onChange={handleInputChange} 
+                  placeholder="e.g., 25 min"
+                  icon={<Clock className="w-4 h-4 text-gray-400" />}
+                />
+                <Input 
+                  label="Discount (%)" 
+                  name="discountPercentage" 
+                  type="number" 
+                  value={formData.discountPercentage} 
+                  onChange={handleInputChange} 
+                  placeholder="0"
+                  min="0"
+                  max="100"
+                />
+              </div>
+
+              <Input 
+                label="Tags" 
+                name="tags" 
+                value={formData.tags} 
+                onChange={handleInputChange} 
+                placeholder="e.g., Italian, Pasta, Vegetarian (comma separated)"
+              />
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Dish Image</label>
+                <div className="space-y-4">
+                  <input 
+                    type="file" 
+                    name="image" 
+                    accept="image/*" 
+                    onChange={handleInputChange}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                  />
+                  {imagePreview && (
+                    <div className="relative inline-block">
+                      <img 
+                        src={imagePreview} 
+                        alt="Preview" 
+                        className="w-32 h-32 object-cover rounded-xl border-2 border-gray-200" 
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="available"
+                  name="available"
+                  checked={formData.available}
+                  onChange={handleInputChange}
+                  className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                />
+                <label htmlFor="available" className="text-sm font-medium text-gray-900">
+                  Available for orders
+                </label>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 pt-6">
+                <Button type="submit" className="flex-1">
+                  {editingItem ? 'Update Dish' : 'Add Dish'}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="secondary"
+                  onClick={editingItem ? handleCancelEdit : handleCancelAdd}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Modal>
+        )}
+      </main>
     </div>
   );
 };

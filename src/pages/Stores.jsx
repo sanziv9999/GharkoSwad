@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Filter, Star, Clock, Phone, Award, Truck } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import { apiService } from '../api/apiService';
+import { getImageUrl } from '../services/imageLocation/imagePath';
 
 const Stores = () => {
   const [selectedLocation, setSelectedLocation] = useState('Kathmandu');
   const [sortBy, setSortBy] = useState('relevance');
+  const [chefs, setChefs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const locations = [
     { name: 'Kathmandu', count: 24 },
@@ -22,126 +27,26 @@ const Stores = () => {
     { value: 'cost', label: 'Cost: Low to High' },
   ];
 
-  const stores = [
-    {
-      id: 1,
-      name: 'Ama Le Banako Khanikura',
-      description: 'The top choice among all our customers, delicious, healthy and a part of an amazing breakfast experience with traditional recipes.',
-      cuisine: 'Nepali Traditional',
-      rating: 4.8,
-      reviews: 245,
-      deliveryTime: '25-35 min',
-      deliveryFee: 'FREE',
-      location: 'Hattiban, Lalitpur',
-      phone: '+977-9841234567',
-      image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=500',
-      tags: ['Available', 'Verified', 'Top Rated'],
-      isAvailable: true,
-      isVerified: true,
-      specialties: ['Dal Bhat', 'Gundruk', 'Achaar'],
-      minOrder: 150,
-      discount: 20
-    },
-    {
-      id: 2,
-      name: 'Pure veg and organic Foods',
-      description: 'Committed to serving the freshest organic vegetables and healthy meals prepared with love and traditional cooking methods.',
-      cuisine: 'Organic Vegetarian',
-      rating: 4.9,
-      reviews: 189,
-      deliveryTime: '20-30 min',
-      deliveryFee: '₹25',
-      location: 'Thaiba, Kathmandu',
-      phone: '+977-9841234568',
-      image: 'https://images.pexels.com/photos/1833336/pexels-photo-1833336.jpeg?auto=compress&cs=tinysrgb&w=500',
-      tags: ['Available', 'Organic', 'Healthy'],
-      isAvailable: true,
-      isVerified: true,
-      specialties: ['Organic Salads', 'Green Smoothies', 'Quinoa Bowls'],
-      minOrder: 200,
-      discount: 15
-    },
-    {
-      id: 3,
-      name: 'Baje le banako Homemade Food',
-      description: 'Traditional homestyle cooking by experienced grandmothers who bring decades of culinary wisdom to every dish.',
-      cuisine: 'Traditional Homestyle',
-      rating: 4.7,
-      reviews: 156,
-      deliveryTime: '30-40 min',
-      deliveryFee: 'FREE',
-      location: 'Patan, Lalitpur',
-      phone: '+977-9841234569',
-      image: 'https://images.pexels.com/photos/769289/pexels-photo-769289.jpeg?auto=compress&cs=tinysrgb&w=500',
-      tags: ['Available', 'Family Recipe', 'Traditional'],
-      isAvailable: true,
-      isVerified: false,
-      specialties: ['Home Curry', 'Roti', 'Pickle'],
-      minOrder: 120,
-      discount: 10
-    },
-    {
-      id: 4,
-      name: 'Newari Kitchen Specialty',
-      description: 'Authentic Newari cuisine prepared by experienced traditional cooks with organic ingredients and time-honored recipes.',
-      cuisine: 'Newari Traditional',
-      rating: 4.6,
-      reviews: 198,
-      deliveryTime: '35-45 min',
-      deliveryFee: '₹30',
-      location: 'Bhaktapur',
-      phone: '+977-9841234570',
-      image: 'https://images.pexels.com/photos/2097090/pexels-photo-2097090.jpeg?auto=compress&cs=tinysrgb&w=500',
-      tags: ['Available', 'Spicy', 'Heritage'],
-      isAvailable: true,
-      isVerified: true,
-      specialties: ['Momo', 'Newari Khaja', 'Chatamari'],
-      minOrder: 180,
-      discount: 25
-    },
-    {
-      id: 5,
-      name: 'Mountain Home Cooking',
-      description: 'Hearty mountain-style dishes prepared with fresh local ingredients and traditional cooking methods from the hills.',
-      cuisine: 'Mountain Traditional',
-      rating: 4.5,
-      reviews: 87,
-      deliveryTime: '40-50 min',
-      deliveryFee: 'FREE',
-      location: 'Thaiba, Kathmandu',
-      phone: '+977-9841234571',
-      image: 'https://images.pexels.com/photos/376464/pexels-photo-376464.jpeg?auto=compress&cs=tinysrgb&w=500',
-      tags: ['Available', 'Mountain Style', 'Healthy'],
-      isAvailable: true,
-      isVerified: false,
-      specialties: ['Sel Roti', 'Gundruk Soup', 'Dhido'],
-      minOrder: 100,
-      discount: 0
-    },
-    {
-      id: 6,
-      name: 'Village Style Kitchen',
-      description: 'Simple yet delicious village-style cooking that brings back childhood memories of home with authentic flavors.',
-      cuisine: 'Village Traditional',
-      rating: 4.4,
-      reviews: 123,
-      deliveryTime: '25-35 min',
-      deliveryFee: '₹20',
-      location: 'Patan, Lalitpur',
-      phone: '+977-9841234572',
-      image: 'https://images.pexels.com/photos/291528/pexels-photo-291528.jpeg?auto=compress&cs=tinysrgb&w=500',
-      tags: ['Available', 'Comfort Food', 'Village Style'],
-      isAvailable: true,
-      isVerified: true,
-      specialties: ['Village Curry', 'Fermented Foods', 'Seasonal Items'],
-      minOrder: 80,
-      discount: 5
-    }
-  ];
+  useEffect(() => {
+    setLoading(true);
+    apiService.getAllChefs()
+      .then(data => {
+        setChefs(data || []);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message || 'Failed to fetch chefs');
+        setLoading(false);
+      });
+  }, []);
 
-  const filteredStores = stores.filter(store => 
-    selectedLocation === 'All' || store.location.includes(selectedLocation)
+  // Filter chefs by location if needed
+  const filteredChefs = chefs.filter(chef =>
+    selectedLocation === 'All' || (chef.location && chef.location.includes(selectedLocation))
   );
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-lg">Loading chefs...</div>;
+  if (error) return <div className="min-h-screen flex items-center justify-center text-red-500 text-lg">{error}</div>;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -149,10 +54,10 @@ const Stores = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-2">
-            Homes and <span className="text-primary-500">Stores</span>
+            Homes and <span className="text-primary-500">Chefs</span>
           </h1>
           <p className="text-xl text-gray-600">
-            Discover authentic homemade food from verified local kitchens
+            Discover authentic homemade food from verified local chefs
           </p>
         </div>
 
@@ -246,95 +151,74 @@ const Stores = () => {
                   <span className="text-gray-700 font-medium">More Filters</span>
                 </button>
                 <p className="text-gray-600">
-                  <span className="font-semibold">{filteredStores.length}</span> restaurants found in{' '}
+                  <span className="font-semibold">{filteredChefs.length}</span> chefs found in{' '}
                   <span className="font-semibold">{selectedLocation}</span>
                 </p>
               </div>
             </Card>
 
-            {/* Stores Grid */}
+            {/* Chefs Grid */}
             <div className="space-y-6">
-              {filteredStores.map((store) => (
-                <Card key={store.id} className="overflow-hidden" hover>
+              {filteredChefs.map((chef) => (
+                <Card key={chef.id} className="overflow-hidden" hover>
                   <div className="md:flex">
                     <div className="md:w-1/3 relative">
                       <img
-                        src={store.image}
-                        alt={store.name}
+                        src={getImageUrl(chef.image) || 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=500'}
+                        alt={chef.name}
                         className="w-full h-64 md:h-full object-cover"
                       />
-                      {store.discount > 0 && (
-                        <div className="absolute top-4 left-4">
-                          <Badge variant="error" className="bg-red-500 text-white">
-                            {store.discount}% OFF
-                          </Badge>
-                        </div>
-                      )}
-                      <div className="absolute top-4 right-4 flex flex-col gap-2">
-                        {store.isVerified && (
+                      {chef.isVerified && (
+                        <div className="absolute top-4 right-4 flex flex-col gap-2">
                           <Badge variant="success" className="bg-green-500 text-white flex items-center">
                             <Award className="w-3 h-3 mr-1" />
                             Verified
                           </Badge>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
-                    
                     <div className="md:w-2/3 p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div>
-                          <h3 className="text-2xl font-bold text-gray-900 mb-1">{store.name}</h3>
-                          <p className="text-gray-600 font-medium">{store.cuisine}</p>
+                          <h3 className="text-2xl font-bold text-gray-900 mb-1">{chef.name}</h3>
+                          <p className="text-gray-600 font-medium">{chef.specialty || 'Homemade Food'}</p>
                         </div>
                         <div className="text-right">
                           <div className="flex items-center space-x-1 mb-1">
                             <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                            <span className="text-lg font-bold text-gray-900">{store.rating}</span>
+                            <span className="text-lg font-bold text-gray-900">{chef.rating || '-'}</span>
                           </div>
-                          <p className="text-sm text-gray-600">({store.reviews} reviews)</p>
+                          {/* <p className="text-sm text-gray-600">({chef.reviews || 0} reviews)</p> */}
                         </div>
                       </div>
-                      
-                      <p className="text-gray-600 mb-4 leading-relaxed">{store.description}</p>
-                      
+                      <p className="text-gray-600 mb-4 leading-relaxed">{chef.bio || 'No description available.'}</p>
                       <div className="flex flex-wrap gap-2 mb-4">
-                        {store.tags.map((tag, index) => (
+                        {chef.tags && chef.tags.map((tag, index) => (
                           <Badge key={index} variant="primary" size="sm">
                             {tag}
                           </Badge>
                         ))}
                       </div>
-                      
                       <div className="flex flex-wrap gap-2 mb-4">
-                        {store.specialties.map((specialty, index) => (
+                        {chef.specialties && chef.specialties.map((specialty, index) => (
                           <span key={index} className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
                             {specialty}
                           </span>
                         ))}
                       </div>
-                      
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-sm">
                         <div className="flex items-center space-x-2">
-                          <Clock className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600">{store.deliveryTime}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Truck className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600">{store.deliveryFee}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
                           <MapPin className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600">{store.location}</span>
+                          <span className="text-gray-600">{chef.location || '-'}</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Phone className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600">Call</span>
+                          <span className="text-gray-600">{chef.phone || '-'}</span>
                         </div>
                       </div>
-                      
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-gray-600">
-                          <p>Min Order: <span className="font-semibold">₹{store.minOrder}</span></p>
+                          <p>Experience: <span className="font-semibold">{chef.experience || '-'} years</span></p>
                         </div>
                         <div className="flex space-x-3">
                           <Button variant="outline" size="md">
