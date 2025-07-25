@@ -1,12 +1,121 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ShoppingBag, Clock, Heart, User, Bell, MapPin, Star, TrendingUp, Calendar, CreditCard } from 'lucide-react';
+import { ShoppingBag, Clock, Heart, User, Bell, MapPin, Star, TrendingUp, Calendar, CreditCard, Upload, X } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
+import Modal from '../components/ui/Modal';
+import Input from '../components/ui/Input';
+import { apiService } from '../api/apiService';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState('');
+  const [formData, setFormData] = useState({
+    username: user?.username || '',
+    email: user?.email || '',
+    phone: user?.phone || user?.phoneNumber || '',
+    address: user?.address || user?.location || '',
+    coordinate: user?.coordinate || '',
+    description: user?.description || '',
+    profilePicture: null
+  });
+  const [previewImage, setPreviewImage] = useState(null);
+
+  // Reset form when modal opens
+  const handleEditProfile = () => {
+    setFormData({
+      username: user?.username || '',
+      email: user?.email || '',
+      phone: user?.phone || user?.phoneNumber || '',
+      address: user?.address || user?.location || '',
+      coordinate: user?.coordinate || '',
+      description: user?.description || '',
+      profilePicture: null
+    });
+    setPreviewImage(null);
+    setUpdateMessage('');
+    setIsEditModalOpen(true);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData(prev => ({
+        ...prev,
+        profilePicture: file
+      }));
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreviewImage(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsUpdating(true);
+    setUpdateMessage('');
+
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('username', formData.username);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('phone', formData.phone);
+      formDataToSend.append('address', formData.address);
+      formDataToSend.append('coordinate', formData.coordinate);
+      formDataToSend.append('description', formData.description);
+      
+      if (formData.profilePicture) {
+        formDataToSend.append('profilePicture', formData.profilePicture);
+      }
+
+      const response = await apiService.updateUserProfile(user.id, formDataToSend);
+      
+      if (response.status === 'success') {
+        // Update user in context with new data
+        const updatedUser = {
+          ...user,
+          username: formData.username,
+          email: formData.email,
+          phone: formData.phone,
+          phoneNumber: formData.phone,
+          address: formData.address,
+          location: formData.address,
+          coordinate: formData.coordinate,
+          description: formData.description,
+          ...(response.data?.profilePicture && { profilePicture: response.data.profilePicture })
+        };
+        setUser(updatedUser);
+        
+        // Also update localStorage
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        
+        setUpdateMessage('Profile updated successfully!');
+        setTimeout(() => {
+          setIsEditModalOpen(false);
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setUpdateMessage(error.message || 'Failed to update profile. Please try again.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const stats = [
     {
@@ -228,7 +337,7 @@ const Dashboard = () => {
                 <h3 className="text-xl font-bold text-gray-900">{user?.name}</h3>
                 <p className="text-gray-600 mb-2">{user?.email}</p>
                 <Badge variant="success" className="mb-4">Premium Member</Badge>
-                <Button className="w-full">
+                <Button className="w-full" onClick={handleEditProfile}>
                   Edit Profile
                 </Button>
               </div>
@@ -287,6 +396,108 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title="Edit Profile"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700">Username</label>
+            <Input
+              type="text"
+              id="username"
+              name="username"
+              value={formData.username}
+              onChange={handleInputChange}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+            <Input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone</label>
+            <Input
+              type="tel"
+              id="phone"
+              name="phone"
+              value={formData.phone}
+              onChange={handleInputChange}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address</label>
+            <Input
+              type="text"
+              id="address"
+              name="address"
+              value={formData.address}
+              onChange={handleInputChange}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <label htmlFor="coordinate" className="block text-sm font-medium text-gray-700">Coordinates</label>
+            <Input
+              type="text"
+              id="coordinate"
+              name="coordinate"
+              value={formData.coordinate}
+              onChange={handleInputChange}
+              placeholder="e.g. 27.7172, 85.3240"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
+            <textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              rows={3}
+              placeholder="Tell us about yourself..."
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+            />
+          </div>
+           <div>
+             <label htmlFor="profilePicture" className="block text-sm font-medium text-gray-700">Profile Picture</label>
+            <Input
+              type="file"
+              id="profilePicture"
+              name="profilePicture"
+              onChange={handleFileChange}
+              className="mt-1"
+            />
+            {previewImage && (
+              <img src={previewImage} alt="Preview" className="mt-2 w-24 h-24 rounded-full object-cover" />
+            )}
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={isUpdating}>
+              {isUpdating ? 'Updating...' : 'Save Changes'}
+            </Button>
+          </div>
+          {updateMessage && (
+            <p className={`text-center ${updateMessage.includes('successfully') ? 'text-green-600' : 'text-red-600'}`}>
+              {updateMessage}
+            </p>
+          )}
+        </form>
+      </Modal>
     </div>
   );
 };
