@@ -1,4 +1,3 @@
-
 package com.example.demo.restcontroller;
 
 import com.example.demo.dto.CancelOrderItemsRequest;
@@ -10,12 +9,13 @@ import com.example.demo.dto.UserDto;
 import com.example.demo.dto.VerifyEsewaRequest;
 import com.example.demo.model.FoodItem;
 import com.example.demo.model.Order;
-import com.example.demo.model.OrderItem;
 import com.example.demo.model.Payment;
 import com.example.demo.model.PaymentStatus;
 import com.example.demo.model.User;
+import com.example.demo.model.UserProfile;
 import com.example.demo.service.FoodItemService;
 import com.example.demo.service.OrderService;
+import com.example.demo.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +42,9 @@ public class OrderRestController {
 
     @Autowired
     private FoodItemService foodItemService;
+
+    @Autowired
+    private UserService userService;
 
     @PostMapping("/place")
     public ResponseEntity<Map<String, Object>> placeOrder(@RequestBody PlaceOrderRequest request) {
@@ -71,6 +74,8 @@ public class OrderRestController {
                     request.getTransactionUuid()
             );
             OrderResponse response = new OrderResponse(order);
+            enrichOrderItems(order, response);
+            response.setUser(mapUserToDto(order.getUser()));
             logger.debug("Order placed successfully: {}", response);
 
             Map<String, Object> responseBody = new HashMap<>();
@@ -106,6 +111,7 @@ public class OrderRestController {
             Order cancelledOrder = orderService.cancelOrder(request.getOrderId(), request.getUserId());
             OrderResponse orderResponse = new OrderResponse(cancelledOrder);
             enrichOrderItems(cancelledOrder, orderResponse);
+            orderResponse.setUser(mapUserToDto(cancelledOrder.getUser()));
             logger.debug("Order cancelled successfully: {}", orderResponse);
 
             Map<String, Object> responseBody = new HashMap<>();
@@ -139,6 +145,7 @@ public class OrderRestController {
                     .map(order -> {
                         OrderResponse orderResponse = new OrderResponse(order);
                         enrichOrderItems(order, orderResponse);
+                        orderResponse.setUser(mapUserToDto(order.getUser()));
                         return orderResponse;
                     })
                     .collect(Collectors.toList()) : Collections.emptyList();
@@ -180,6 +187,7 @@ public class OrderRestController {
                     .map(order -> {
                         OrderResponse orderResponse = new OrderResponse(order);
                         enrichOrderItems(order, orderResponse);
+                        orderResponse.setUser(mapUserToDto(order.getUser()));
                         return orderResponse;
                     })
                     .collect(Collectors.toList()) : Collections.emptyList();
@@ -225,9 +233,11 @@ public class OrderRestController {
                     .map(order -> {
                         OrderResponse orderResponse = new OrderResponse(order);
                         enrichOrderItems(order, orderResponse);
+                        orderResponse.setUser(mapUserToDto(order.getUser()));
                         return orderResponse;
                     })
                     .collect(Collectors.toList()) : Collections.emptyList();
+            logger.debug("Fetched {} READY orders for delivery userId={}", response.size(), userId);
 
             Map<String, Object> responseBody = new HashMap<>();
             if (response.isEmpty()) {
@@ -249,7 +259,7 @@ public class OrderRestController {
             errorResponse.put("status", "error");
             return ResponseEntity.badRequest().body(errorResponse);
         } catch (Exception e) {
-            logger.error("Unexpected error fetching READY orders: {}", e.getMessage());
+            logger.error("Unexpected error fetching READY orders: {}", e.getMessage(), e);
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("data", null);
             errorResponse.put("message", "Failed to fetch READY orders: " + e.getMessage());
@@ -275,9 +285,11 @@ public class OrderRestController {
                     .map(order -> {
                         OrderResponse orderResponse = new OrderResponse(order);
                         enrichOrderItems(order, orderResponse);
+                        orderResponse.setUser(mapUserToDto(order.getUser()));
                         return orderResponse;
                     })
                     .collect(Collectors.toList()) : Collections.emptyList();
+            logger.debug("Fetched {} orders for delivery userId={} with status={}", response.size(), userId, status);
 
             Map<String, Object> responseBody = new HashMap<>();
             if (response.isEmpty()) {
@@ -299,7 +311,7 @@ public class OrderRestController {
             errorResponse.put("status", "error");
             return ResponseEntity.badRequest().body(errorResponse);
         } catch (Exception e) {
-            logger.error("Unexpected error fetching delivery orders: {}", e.getMessage());
+            logger.error("Unexpected error fetching delivery orders: {}", e.getMessage(), e);
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("data", null);
             errorResponse.put("message", "Failed to fetch delivery orders: " + e.getMessage());
@@ -326,6 +338,7 @@ public class OrderRestController {
             Order updatedOrder = orderService.updateDeliveryStatus(orderId, userId, status);
             OrderResponse orderResponse = new OrderResponse(updatedOrder);
             enrichOrderItems(updatedOrder, orderResponse);
+            orderResponse.setUser(mapUserToDto(updatedOrder.getUser()));
             logger.debug("Delivery status updated to {} successfully: {}", status, orderResponse);
 
             Map<String, Object> responseBody = new HashMap<>();
@@ -368,6 +381,7 @@ public class OrderRestController {
             Order updatedOrder = orderService.updatePaymentStatus(orderId, userId, paymentStatus);
             OrderResponse orderResponse = new OrderResponse(updatedOrder);
             enrichOrderItems(updatedOrder, orderResponse);
+            orderResponse.setUser(mapUserToDto(updatedOrder.getUser()));
             logger.debug("Payment status updated to {} successfully: {}", paymentStatus, orderResponse);
 
             Map<String, Object> responseBody = new HashMap<>();
@@ -391,7 +405,7 @@ public class OrderRestController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
-    
+
     @PutMapping("/{orderId}/status")
     public ResponseEntity<Map<String, Object>> updateOrderStatus(
             @PathVariable Long orderId,
@@ -410,6 +424,7 @@ public class OrderRestController {
             Order updatedOrder = orderService.updateOrderStatus(orderId, userId, status);
             OrderResponse orderResponse = new OrderResponse(updatedOrder);
             enrichOrderItems(updatedOrder, orderResponse);
+            orderResponse.setUser(mapUserToDto(updatedOrder.getUser()));
             logger.debug("Order status updated to {} successfully: {}", status, orderResponse);
 
             Map<String, Object> responseBody = new HashMap<>();
@@ -448,10 +463,11 @@ public class OrderRestController {
                     .map(order -> {
                         OrderResponse orderResponse = new OrderResponse(order);
                         enrichOrderItems(order, orderResponse);
+                        orderResponse.setUser(mapUserToDto(order.getUser()));
                         return orderResponse;
                     })
                     .collect(Collectors.toList()) : Collections.emptyList();
-            logger.debug("Fetched orders for chefId {}: {}", userId, response);
+            logger.debug("Fetched {} orders for chefId={}", response.size(), userId);
 
             Map<String, Object> responseBody = new HashMap<>();
             if (response.isEmpty()) {
@@ -501,7 +517,7 @@ public class OrderRestController {
             orderResponse.setOrderItems(orderItemResponses);
         }
     }
-    
+
     @PostMapping("/verify-esewa")
     public ResponseEntity<Map<String, Object>> verifyEsewaPayment(@RequestBody VerifyEsewaRequest request) {
         logger.info("Received eSewa verification request: transactionUuid={}, amount={}",
@@ -542,7 +558,7 @@ public class OrderRestController {
                 responseBody.put("status", "success");
                 return ResponseEntity.ok(responseBody);
             } else {
-                logger.warn("Amount mismatch: Stored amount: {}, Received amount: {}", 
+                logger.warn("Amount mismatch: Stored amount: {}, Received amount: {}",
                            payment.getAmount(), request.getAmount());
                 throw new IllegalStateException("Invalid transaction or amount mismatch");
             }
@@ -562,9 +578,10 @@ public class OrderRestController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
-    
+
     private UserDto mapUserToDto(User user) {
         if (user == null) {
+            logger.debug("User is null in mapUserToDto");
             return null;
         }
         UserDto dto = new UserDto();
@@ -574,9 +591,21 @@ public class OrderRestController {
         dto.setLocation(user.getLocation() != null ? user.getLocation() : "");
         dto.setPhoneNumber(user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
         dto.setRole(user.getRole() != null ? user.getRole() : "");
+        UserProfile profile = userService.findUserProfileByUserId(user.getId());
+        logger.debug("UserProfile for userId={} in mapUserToDto: {}", user.getId(), 
+                     profile != null ? "Found [profilePicture=" + profile.getProfilePicture() + 
+                     ", coordinate=" + profile.getCoordinate() + ", description=" + profile.getDescription() + "]" : "null");
+        if (profile != null) {
+            dto.setProfilePicture(profile.getProfilePicture() != null ? profile.getProfilePicture() : null);
+            dto.setCoordinate(profile.getCoordinate() != null ? profile.getCoordinate() : null);
+            dto.setDescription(profile.getDescription() != null ? profile.getDescription() : null);
+        } else {
+            dto.setProfilePicture(null);
+            dto.setCoordinate(null);
+            dto.setDescription(null);
+        }
         return dto;
     }
-
 
     private void mapFoodToDto(FoodItem food, FoodItemDto dto) {
         dto.setId(food.getId());
@@ -591,10 +620,25 @@ public class OrderRestController {
         dto.setDiscountPercentage(food.getDiscountPercentage() != null ? food.getDiscountPercentage() : 0.0);
         if (food.getUser() != null) {
             UserDto userDto = new UserDto();
-            userDto.setEmail(food.getUser().getEmail());
-            userDto.setUsername(food.getUser().getUsername());
-            userDto.setLocation(food.getUser().getLocation());
-            userDto.setPhoneNumber(food.getUser().getPhoneNumber());
+            userDto.setId(food.getUser().getId());
+            userDto.setEmail(food.getUser().getEmail() != null ? food.getUser().getEmail() : "");
+            userDto.setUsername(food.getUser().getUsername() != null ? food.getUser().getUsername() : "");
+            userDto.setLocation(food.getUser().getLocation() != null ? food.getUser().getLocation() : "");
+            userDto.setPhoneNumber(food.getUser().getPhoneNumber() != null ? food.getUser().getPhoneNumber() : "");
+            userDto.setRole(food.getUser().getRole() != null ? food.getUser().getRole() : "");
+            UserProfile profile = userService.findUserProfileByUserId(food.getUser().getId());
+            logger.debug("UserProfile for chefId={} in mapFoodToDto: {}", food.getUser().getId(), 
+                         profile != null ? "Found [profilePicture=" + profile.getProfilePicture() + 
+                         ", coordinate=" + profile.getCoordinate() + ", description=" + profile.getDescription() + "]" : "null");
+            if (profile != null) {
+                userDto.setProfilePicture(profile.getProfilePicture() != null ? profile.getProfilePicture() : null);
+                userDto.setCoordinate(profile.getCoordinate() != null ? profile.getCoordinate() : null);
+                userDto.setDescription(profile.getDescription() != null ? profile.getDescription() : null);
+            } else {
+                userDto.setProfilePicture(null);
+                userDto.setCoordinate(null);
+                userDto.setDescription(null);
+            }
             dto.setUser(userDto);
         }
     }

@@ -106,12 +106,19 @@ public class UserService {
         }
 
         userRepository.save(user);
-        return userProfileRepository.save(profile);
+        UserProfile savedProfile = userProfileRepository.save(profile);
+        logger.debug("UserProfile created for userId={}: [profilePicture={}, coordinate={}, description={}]",
+                     userId, savedProfile.getProfilePicture(), savedProfile.getCoordinate(), savedProfile.getDescription());
+        return savedProfile;
     }
 
     public UserProfile findUserProfileByUserId(Long userId) {
         logger.info("Fetching user profile for userId={}", userId);
-        return userProfileRepository.findByUserId(userId);
+        UserProfile profile = userProfileRepository.findByUserId(userId);
+        logger.debug("UserProfile for userId={} found: {}", userId, 
+                     profile != null ? "Found [profilePicture=" + profile.getProfilePicture() + 
+                     ", coordinate=" + profile.getCoordinate() + ", description=" + profile.getDescription() + "]" : "null");
+        return profile;
     }
 
     @Transactional
@@ -159,7 +166,6 @@ public class UserService {
         } else {
             logger.info("No new image provided for update - keeping existing profile picture: {}", 
                        profile.getProfilePicture() != null ? profile.getProfilePicture() : "none");
-            // Don't modify profile.getProfilePicture() - keep the existing value
         }
 
         // Update other profile fields
@@ -176,8 +182,12 @@ public class UserService {
             throw new IllegalArgumentException("Description is required for users with CHEF role");
         }
 
-        return userProfileRepository.save(profile);
+        UserProfile savedProfile = userProfileRepository.save(profile);
+        logger.debug("UserProfile updated for userId={}: [profilePicture={}, coordinate={}, description={}]",
+                     userId, savedProfile.getProfilePicture(), savedProfile.getCoordinate(), savedProfile.getDescription());
+        return savedProfile;
     }
+
     @Transactional
     public void deleteUserProfile(Long userId) {
         logger.info("Deleting user profile for userId={}", userId);
