@@ -312,24 +312,48 @@ export const apiService = {
     return response; // Return full response object
   },
 
-  async cancelOrder(userId, orderId, token = null) {
+  async cancelOrder(userId, orderIdOrItems, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
-    console.log('Cancelling order:', { userId, orderId });
+    console.log('Cancelling order:', { userId, orderIdOrItems });
     
     // Validate input parameters
-    if (!userId || !orderId) {
-      throw new Error('userId and orderId are required');
+    if (!userId) {
+      throw new Error('userId is required');
     }
     
-    const requestBody = {
-      userId: parseInt(userId, 10),
-      orderId: parseInt(orderId, 10)
-    };
-    
-    console.log('Sending cancel order request with body:', requestBody);
-    const response = await this.put('/orders/cancel-order', requestBody, tokenFromStorage);
-    console.log('Cancel order response:', response);
-    return response; // Return full response object
+    // Check if second parameter is an array (selected items) or orderId
+    if (Array.isArray(orderIdOrItems)) {
+      // Cancelling specific order items
+      if (orderIdOrItems.length === 0) {
+        throw new Error('At least one item must be selected for cancellation');
+      }
+      
+      const requestBody = {
+        userId: parseInt(userId, 10),
+        orderItemIds: orderIdOrItems.map(id => parseInt(id, 10))
+      };
+      
+      console.log('Sending cancel order items request with body:', requestBody);
+      const response = await this.put('/orders/cancel-order-items', requestBody, tokenFromStorage);
+      console.log('Cancel order items response:', response);
+      return response;
+    } else {
+      // Cancelling entire order
+      const orderId = orderIdOrItems;
+      if (!orderId) {
+        throw new Error('orderId is required');
+      }
+      
+      const requestBody = {
+        userId: parseInt(userId, 10),
+        orderId: parseInt(orderId, 10)
+      };
+      
+      console.log('Sending cancel order request with body:', requestBody);
+      const response = await this.put('/orders/cancel-order', requestBody, tokenFromStorage);
+      console.log('Cancel order response:', response);
+      return response;
+    }
   },
 
   async getOrdersByUserId(userId, token = null) {
