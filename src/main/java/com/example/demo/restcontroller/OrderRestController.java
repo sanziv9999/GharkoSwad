@@ -391,6 +391,48 @@ public class OrderRestController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
+    
+    @PutMapping("/{orderId}/status")
+    public ResponseEntity<Map<String, Object>> updateOrderStatus(
+            @PathVariable Long orderId,
+            @RequestBody Map<String, Object> requestBody) {
+        logger.info("Received request to update order status for orderId={}", orderId);
+        try {
+            Long userId = requestBody.get("userId") != null ? ((Number) requestBody.get("userId")).longValue() : null;
+            String status = (String) requestBody.get("status");
+            if (userId == null) {
+                throw new IllegalArgumentException("userId is required in request body");
+            }
+            if (status == null || status.trim().isEmpty()) {
+                throw new IllegalArgumentException("status is required in request body");
+            }
+
+            Order updatedOrder = orderService.updateOrderStatus(orderId, userId, status);
+            OrderResponse orderResponse = new OrderResponse(updatedOrder);
+            enrichOrderItems(updatedOrder, orderResponse);
+            logger.debug("Order status updated to {} successfully: {}", status, orderResponse);
+
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("data", orderResponse);
+            responseBody.put("message", "Order status updated to " + status + " successfully");
+            responseBody.put("status", "success");
+            return ResponseEntity.ok(responseBody);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            logger.warn("Error updating order status: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.badRequest().body(errorResponse);
+        } catch (Exception e) {
+            logger.error("Unexpected error updating order status: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", null);
+            errorResponse.put("message", "Failed to update order status: " + e.getMessage());
+            errorResponse.put("status", "error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
 
     @GetMapping("/chef/{userId}")
     public ResponseEntity<Map<String, Object>> getOrdersByChefId(
@@ -548,7 +590,6 @@ public class OrderRestController {
         dto.setTags(food.getTags() != null ? new HashSet<>(food.getTags()) : new HashSet<>());
         dto.setDiscountPercentage(food.getDiscountPercentage() != null ? food.getDiscountPercentage() : 0.0);
         if (food.getUser() != null) {
-            dto.setUserId(food.getUser().getId());
             UserDto userDto = new UserDto();
             userDto.setEmail(food.getUser().getEmail());
             userDto.setUsername(food.getUser().getUsername());

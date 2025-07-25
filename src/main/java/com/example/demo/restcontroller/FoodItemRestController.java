@@ -580,7 +580,6 @@ public class FoodItemRestController {
         dto.setTags(food.getTags() != null ? new HashSet<>(food.getTags()) : new HashSet<>());
         dto.setDiscountPercentage(food.getDiscountPercentage() != null ? food.getDiscountPercentage() : 0.0);
         if (food.getUser() != null) {
-            dto.setUserId(food.getUser().getId());
             UserDto userDto = new UserDto();
             userDto.setEmail(food.getUser().getEmail());
             userDto.setUsername(food.getUser().getUsername());
