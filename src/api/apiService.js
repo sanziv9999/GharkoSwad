@@ -392,7 +392,7 @@ export const apiService = {
     return response;
   },
 
-  async updateOrderStatus(orderId, status, userId, token = null) {
+  async updateOrderDeliveryStatus(orderId, status, userId, token = null) {
     const tokenFromStorage = localStorage.getItem('token') || token;
     if (!orderId || !status || !userId) throw new Error('orderId, status, and userId are required');
     const requestBody = { userId: parseInt(userId, 10), status };

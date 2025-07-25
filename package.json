@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "crypto-js": "^4.2.0",
+    "framer-motion": "^12.23.9",
     "leaflet": "^1.9.4",
     "leaflet-routing-machine": "^3.2.12",
     "lucide-react": "^0.344.0",
