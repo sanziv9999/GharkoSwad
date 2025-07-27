@@ -13,9 +13,11 @@ import com.example.demo.model.Payment;
 import com.example.demo.model.PaymentStatus;
 import com.example.demo.model.User;
 import com.example.demo.model.UserProfile;
+import com.example.demo.service.EmailService;
 import com.example.demo.service.FoodItemService;
 import com.example.demo.service.OrderService;
 import com.example.demo.service.UserService;
+import jakarta.mail.MessagingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +47,9 @@ public class OrderRestController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private EmailService emailService; // Inject EmailService
 
     @PostMapping("/place")
     public ResponseEntity<Map<String, Object>> placeOrder(@RequestBody PlaceOrderRequest request) {
@@ -77,6 +82,17 @@ public class OrderRestController {
             enrichOrderItems(order, response);
             response.setUser(mapUserToDto(order.getUser()));
             logger.debug("Order placed successfully: {}", response);
+
+            // Send order confirmation email
+            if (order.getUser().getEmail() != null && !order.getUser().getEmail().isEmpty()) {
+                try {
+                    emailService.sendOrderConfirmationEmail(order.getUser(), order);
+                } catch (MessagingException e) {
+                    logger.error("Failed to send order confirmation email for order ID {}: {}", order.getId(), e.getMessage());
+                }
+            } else {
+                logger.warn("No valid email found for user ID {} to send order confirmation", order.getUser().getId());
+            }
 
             Map<String, Object> responseBody = new HashMap<>();
             responseBody.put("data", response);
@@ -113,6 +129,17 @@ public class OrderRestController {
             enrichOrderItems(cancelledOrder, orderResponse);
             orderResponse.setUser(mapUserToDto(cancelledOrder.getUser()));
             logger.debug("Order cancelled successfully: {}", orderResponse);
+
+            // Send order cancellation email
+            if (cancelledOrder.getUser().getEmail() != null && !cancelledOrder.getUser().getEmail().isEmpty()) {
+                try {
+                    emailService.sendOrderCancellationEmail(cancelledOrder.getUser(), cancelledOrder);
+                } catch (MessagingException e) {
+                    logger.error("Failed to send order cancellation email for order ID {}: {}", cancelledOrder.getId(), e.getMessage());
+                }
+            } else {
+                logger.warn("No valid email found for user ID {} to send order cancellation", cancelledOrder.getUser().getId());
+            }
 
             Map<String, Object> responseBody = new HashMap<>();
             responseBody.put("data", orderResponse);
@@ -341,6 +368,17 @@ public class OrderRestController {
             orderResponse.setUser(mapUserToDto(updatedOrder.getUser()));
             logger.debug("Delivery status updated to {} successfully: {}", status, orderResponse);
 
+            // Send order status update email for delivery status changes
+            if (updatedOrder.getUser().getEmail() != null && !updatedOrder.getUser().getEmail().isEmpty()) {
+                try {
+                    emailService.sendOrderStatusUpdateEmail(updatedOrder.getUser(), updatedOrder, status);
+                } catch (MessagingException e) {
+                    logger.error("Failed to send delivery status update email for order ID {}: {}", updatedOrder.getId(), e.getMessage());
+                }
+            } else {
+                logger.warn("No valid email found for user ID {} to send delivery status update", updatedOrder.getUser().getId());
+            }
+
             Map<String, Object> responseBody = new HashMap<>();
             responseBody.put("data", orderResponse);
             responseBody.put("message", "Delivery status updated to " + status + " successfully");
@@ -384,6 +422,17 @@ public class OrderRestController {
             orderResponse.setUser(mapUserToDto(updatedOrder.getUser()));
             logger.debug("Payment status updated to {} successfully: {}", paymentStatus, orderResponse);
 
+            // Send payment status update email
+            if (updatedOrder.getUser().getEmail() != null && !updatedOrder.getUser().getEmail().isEmpty()) {
+                try {
+                    emailService.sendPaymentStatusUpdateEmail(updatedOrder.getUser(), updatedOrder, paymentStatus);
+                } catch (MessagingException e) {
+                    logger.error("Failed to send payment status update email for order ID {}: {}", updatedOrder.getId(), e.getMessage());
+                }
+            } else {
+                logger.warn("No valid email found for user ID {} to send payment status update", updatedOrder.getUser().getId());
+            }
+
             Map<String, Object> responseBody = new HashMap<>();
             responseBody.put("data", orderResponse);
             responseBody.put("message", "Payment status updated to " + paymentStatus + " successfully");
@@ -426,6 +475,17 @@ public class OrderRestController {
             enrichOrderItems(updatedOrder, orderResponse);
             orderResponse.setUser(mapUserToDto(updatedOrder.getUser()));
             logger.debug("Order status updated to {} successfully: {}", status, orderResponse);
+
+            // Send order status update email
+            if (updatedOrder.getUser().getEmail() != null && !updatedOrder.getUser().getEmail().isEmpty()) {
+                try {
+                    emailService.sendOrderStatusUpdateEmail(updatedOrder.getUser(), updatedOrder, status);
+                } catch (MessagingException e) {
+                    logger.error("Failed to send order status update email for order ID {}: {}", updatedOrder.getId(), e.getMessage());
+                }
+            } else {
+                logger.warn("No valid email found for user ID {} to send order status update", updatedOrder.getUser().getId());
+            }
 
             Map<String, Object> responseBody = new HashMap<>();
             responseBody.put("data", orderResponse);
@@ -498,26 +558,6 @@ public class OrderRestController {
         }
     }
 
-    private void enrichOrderItems(Order order, OrderResponse orderResponse) {
-        if (order.getOrderItems() != null) {
-            List<OrderItemResponse> orderItemResponses = order.getOrderItems().stream()
-                    .map(item -> {
-                        FoodItem foodItem = foodItemService.findById(item.getFoodItem().getId());
-                        FoodItemDto foodItemDto = new FoodItemDto();
-                        if (foodItem != null) {
-                            mapFoodToDto(foodItem, foodItemDto);
-                        } else {
-                            logger.warn("Food item not found for foodItemId: {}", item.getFoodItem().getId());
-                            foodItemDto.setId(item.getFoodItem().getId());
-                            foodItemDto.setName("Unknown");
-                        }
-                        return new OrderItemResponse(item.getId(), foodItemDto, item.getQuantity());
-                    })
-                    .collect(Collectors.toList());
-            orderResponse.setOrderItems(orderItemResponses);
-        }
-    }
-
     @PostMapping("/verify-esewa")
     public ResponseEntity<Map<String, Object>> verifyEsewaPayment(@RequestBody VerifyEsewaRequest request) {
         logger.info("Received eSewa verification request: transactionUuid={}, amount={}",
@@ -552,6 +592,17 @@ public class OrderRestController {
                 orderResponse.setUser(mapUserToDto(order.getUser()));
                 logger.info("Payment verified and status updated to COMPLETED for order ID: {}", order.getId());
 
+                // Send payment status update email
+                if (order.getUser().getEmail() != null && !order.getUser().getEmail().isEmpty()) {
+                    try {
+                        emailService.sendPaymentStatusUpdateEmail(order.getUser(), order, "COMPLETED");
+                    } catch (MessagingException e) {
+                        logger.error("Failed to send payment status update email for order ID {}: {}", order.getId(), e.getMessage());
+                    }
+                } else {
+                    logger.warn("No valid email found for user ID {} to send payment status update", order.getUser().getId());
+                }
+
                 Map<String, Object> responseBody = new HashMap<>();
                 responseBody.put("data", orderResponse);
                 responseBody.put("message", "eSewa payment verified successfully");
@@ -579,6 +630,26 @@ public class OrderRestController {
         }
     }
 
+    private void enrichOrderItems(Order order, OrderResponse orderResponse) {
+        if (order.getOrderItems() != null) {
+            List<OrderItemResponse> orderItemResponses = order.getOrderItems().stream()
+                    .map(item -> {
+                        FoodItem foodItem = foodItemService.findById(item.getFoodItem().getId());
+                        FoodItemDto foodItemDto = new FoodItemDto();
+                        if (foodItem != null) {
+                            mapFoodToDto(foodItem, foodItemDto);
+                        } else {
+                            logger.warn("Food item not found for foodItemId: {}", item.getFoodItem().getId());
+                            foodItemDto.setId(item.getFoodItem().getId());
+                            foodItemDto.setName("Unknown");
+                        }
+                        return new OrderItemResponse(item.getId(), foodItemDto, item.getQuantity());
+                    })
+                    .collect(Collectors.toList());
+            orderResponse.setOrderItems(orderItemResponses);
+        }
+    }
+
     private UserDto mapUserToDto(User user) {
         if (user == null) {
             logger.debug("User is null in mapUserToDto");
@@ -592,8 +663,8 @@ public class OrderRestController {
         dto.setPhoneNumber(user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
         dto.setRole(user.getRole() != null ? user.getRole() : "");
         UserProfile profile = userService.findUserProfileByUserId(user.getId());
-        logger.debug("UserProfile for userId={} in mapUserToDto: {}", user.getId(), 
-                     profile != null ? "Found [profilePicture=" + profile.getProfilePicture() + 
+        logger.debug("UserProfile for userId={} in mapUserToDto: {}", user.getId(),
+                     profile != null ? "Found [profilePicture=" + profile.getProfilePicture() +
                      ", coordinate=" + profile.getCoordinate() + ", description=" + profile.getDescription() + "]" : "null");
         if (profile != null) {
             dto.setProfilePicture(profile.getProfilePicture() != null ? profile.getProfilePicture() : null);
@@ -627,8 +698,8 @@ public class OrderRestController {
             userDto.setPhoneNumber(food.getUser().getPhoneNumber() != null ? food.getUser().getPhoneNumber() : "");
             userDto.setRole(food.getUser().getRole() != null ? food.getUser().getRole() : "");
             UserProfile profile = userService.findUserProfileByUserId(food.getUser().getId());
-            logger.debug("UserProfile for chefId={} in mapFoodToDto: {}", food.getUser().getId(), 
-                         profile != null ? "Found [profilePicture=" + profile.getProfilePicture() + 
+            logger.debug("UserProfile for chefId={} in mapFoodToDto: {}", food.getUser().getId(),
+                         profile != null ? "Found [profilePicture=" + profile.getProfilePicture() +
                          ", coordinate=" + profile.getCoordinate() + ", description=" + profile.getDescription() + "]" : "null");
             if (profile != null) {
                 userDto.setProfilePicture(profile.getProfilePicture() != null ? profile.getProfilePicture() : null);
