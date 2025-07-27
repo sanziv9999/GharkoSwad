@@ -266,7 +266,7 @@ const MyOrders = () => {
                       <div className="flex items-center space-x-2">
                         <DollarSign className="w-4 h-4 text-gray-400" />
                         <span className="text-gray-600">Total:</span>
-                        <span className="font-semibold">₹{order.amount?.toFixed(2)}</span>
+                        <span className="font-semibold">NRs.{order.amount?.toFixed(2)}</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Package className="w-4 h-4 text-gray-400" />
@@ -308,10 +308,10 @@ const MyOrders = () => {
                                   <p className="text-xs text-gray-500">by {foodItem.user?.username || 'Unknown Chef'}</p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="font-semibold text-gray-900">₹{foodItem.price?.toFixed(2)}</p>
+                                  <p className="font-semibold text-gray-900">NRs.{foodItem.price?.toFixed(2)}</p>
                                   <p className="text-sm text-gray-600">Qty: {orderItem.quantity}</p>
                                   <p className="text-sm font-semibold text-primary-600">
-                                    ₹{(foodItem.price * orderItem.quantity)?.toFixed(2)}
+                                    NRs.{(foodItem.price * orderItem.quantity)?.toFixed(2)}
                                   </p>
                                 </div>
                               </div>
@@ -445,9 +445,9 @@ const MyOrders = () => {
                     </div>
                     
                     <div className="text-right">
-                      <p className="font-semibold text-gray-900">₹{foodItem.price?.toFixed(2)}</p>
+                      <p className="font-semibold text-gray-900">NRs.{foodItem.price?.toFixed(2)}</p>
                       <p className="text-sm text-primary-600">
-                        ₹{(foodItem.price * orderItem.quantity)?.toFixed(2)}
+                        NRs.{(foodItem.price * orderItem.quantity)?.toFixed(2)}
                       </p>
                     </div>
                   </div>

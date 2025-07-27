@@ -339,7 +339,7 @@ const Checkout = () => {
                       <h3 className="font-medium text-gray-900">{item.name}</h3>
                       <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
                     </div>
-                    <span className="font-semibold text-gray-900">₹{(item.price * item.quantity).toFixed(2)}</span>
+                    <span className="font-semibold text-gray-900">NRs.{(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -347,15 +347,15 @@ const Checkout = () => {
               <div className="border-t border-gray-200 mt-6 pt-6 space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
-                  <span className="font-semibold">₹{subtotal.toFixed(2)}</span>
+                  <span className="font-semibold">NRs.{subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Delivery Fee</span>
-                  <span className="font-semibold">₹{deliveryFee}</span>
+                  <span className="font-semibold">NRs.{deliveryFee}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold text-gray-900 border-t border-gray-200 pt-3">
                   <span>Total</span>
-                  <span>₹{total.toFixed(2)}</span>
+                  <span>NRs.{total.toFixed(2)}</span>
                 </div>
               </div>
             </Card>
@@ -375,7 +375,7 @@ const Checkout = () => {
                 className="w-full py-4 text-lg font-semibold"
                 disabled={loading || !cartItems.length}
               >
-                {loading ? 'Placing Order...' : `Place Order - ₹${total.toFixed(2)}`}
+                {loading ? 'Placing Order...' : `Place Order - NRs.${total.toFixed(2)}`}
               </Button>
             )}
           </div>

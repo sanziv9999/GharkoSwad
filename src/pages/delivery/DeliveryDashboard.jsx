@@ -978,7 +978,7 @@ const DeliveryDashboard = () => {
                         {order.amount && (
                           <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                             <span className="text-xs sm:text-sm text-gray-600">{order.orderItems?.length || 0} items</span>
-                            <span className="text-base sm:text-lg font-bold text-gray-900">₹{order.amount}</span>
+                            <span className="text-base sm:text-lg font-bold text-gray-900">NRs.{order.amount}</span>
                           </div>
                         )}
                       </div>
@@ -1011,13 +1011,13 @@ const DeliveryDashboard = () => {
                                     {item.foodItem?.name || 'Food Item'}
                                   </h5>
                                   <div className="flex items-center space-x-2 mt-0.5">
-                                    <span className="text-xs text-gray-500">₹{item.foodItem?.price || item.price}</span>
+                                    <span className="text-xs text-gray-500">NRs.{item.foodItem?.price || item.price}</span>
                                     <span className="text-xs text-gray-400">×{item.quantity}</span>
                                   </div>
                                 </div>
                                 <div className="text-right flex-shrink-0">
                                   <div className="text-sm font-semibold text-gray-900">
-                                    ₹{((item.foodItem?.price || item.price) * item.quantity).toFixed(2)}
+                                    NRs.{((item.foodItem?.price || item.price) * item.quantity).toFixed(2)}
                                   </div>
                                 </div>
                               </div>

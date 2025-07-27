@@ -468,6 +468,19 @@ export const apiService = {
     return response;
   },
 
+  async getDeliveryLocation(deliveryId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    console.log('Fetching delivery location for:', deliveryId);
+    
+    if (!deliveryId) {
+      throw new Error('deliveryId is required');
+    }
+    
+    const response = await this.get(`/delivery/${deliveryId}/location`, tokenFromStorage);
+    console.log('Delivery location response:', response);
+    return response;
+  },
+
   async getAllChefs(token = null) {
     const tokenFromStorage = localStorage.getItem('token') || token;
     const result = await this.get('/users/chefs', tokenFromStorage);

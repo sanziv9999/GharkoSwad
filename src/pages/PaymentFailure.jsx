@@ -102,7 +102,7 @@ const PaymentFailure = () => {
                 {cartItems.slice(0, 3).map((item) => (
                   <div key={item.id} className="flex justify-between items-center">
                     <span className="text-gray-700">{item.name} x{item.quantity}</span>
-                    <span className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</span>
+                    <span className="font-medium">NRs.{(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
                 {cartItems.length > 3 && (

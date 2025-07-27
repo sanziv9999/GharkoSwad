@@ -218,9 +218,9 @@ const Menu = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center space-x-2">
-                      <span className="text-2xl font-bold text-gray-900">₹{item.price.toFixed(2)}</span>
+                      <span className="text-2xl font-bold text-gray-900">NRs.{item.price.toFixed(2)}</span>
                       {item.originalPrice && (
-                        <span className="text-lg text-gray-500 line-through">₹{item.originalPrice.toFixed(2)}</span>
+                                                  <span className="text-lg text-gray-500 line-through">NRs.{item.originalPrice.toFixed(2)}</span>
                       )}
                     </div>
                     <p className="text-sm text-gray-500">{item.reviews || 0} reviews</p>

@@ -165,9 +165,9 @@ const Home = () => {
                         <div>
                           <p className="font-bold text-gray-900">{item.name}</p>
                           <div className="flex items-center space-x-2">
-                            <p className="text-primary-600 font-semibold">₹{item.price.toFixed(2)}</p>
+                            <p className="text-primary-600 font-semibold">NRs.{item.price.toFixed(2)}</p>
                             {item.originalPrice && (
-                              <p className="text-xs text-gray-500 line-through">₹{item.originalPrice.toFixed(2)}</p>
+                                                              <p className="text-xs text-gray-500 line-through">NRs.{item.originalPrice.toFixed(2)}</p>
                             )}
                           </div>
                           <div className="flex items-center space-x-1">
@@ -287,7 +287,7 @@ const Home = () => {
                   </div>
                   <div className="absolute top-4 right-4">
                     <div className="bg-green-500 text-white px-2 py-1 rounded-full text-sm font-bold">
-                      Save ₹{(offer.originalPrice - offer.discountedPrice).toFixed(2)}
+                      Save NRs.{(offer.originalPrice - offer.discountedPrice).toFixed(2)}
                     </div>
                   </div>
                 </div>
@@ -296,8 +296,8 @@ const Home = () => {
                   <p className="text-gray-600 mb-4">{offer.description}</p>
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <span className="text-2xl font-bold text-gray-900">₹{offer.discountedPrice.toFixed(2)}</span>
-                      <span className="text-lg text-gray-500 line-through ml-2">₹{offer.originalPrice.toFixed(2)}</span>
+                      <span className="text-2xl font-bold text-gray-900">NRs.{offer.discountedPrice.toFixed(2)}</span>
+                      <span className="text-lg text-gray-500 line-through ml-2">NRs.{offer.originalPrice.toFixed(2)}</span>
                     </div>
                   </div>
                   <Link to="/offers">

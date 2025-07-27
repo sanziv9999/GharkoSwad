@@ -352,7 +352,7 @@ const Offers = () => {
                 {/* Savings Badge */}
                 <div className="absolute top-3 sm:top-4 right-3 sm:right-4">
                   <div className="bg-green-500 text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold">
-                    Save ₹{calculateSavings(offer.originalPrice, offer.discountedPrice)}
+                    Save NRs.{calculateSavings(offer.originalPrice, offer.discountedPrice)}
                   </div>
                 </div>
 
@@ -406,7 +406,7 @@ const Offers = () => {
                     {offer.items.slice(0, 2).map((item, index) => (
                       <div key={index} className="flex items-center justify-between text-xs sm:text-sm">
                         <span className="text-gray-600 truncate">• {item.name} x{item.quantity}</span>
-                        <span className="text-gray-500 ml-2 flex-shrink-0">₹{item.price}</span>
+                        <span className="text-gray-500 ml-2 flex-shrink-0">NRs.{item.price}</span>
                       </div>
                     ))}
                     {offer.items.length > 2 && (
@@ -437,11 +437,11 @@ const Offers = () => {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <div className="flex items-center space-x-2">
-                      <span className="text-xl sm:text-2xl font-bold text-gray-900">₹{offer.discountedPrice}</span>
-                      <span className="text-base sm:text-lg text-gray-500 line-through">₹{offer.originalPrice}</span>
+                      <span className="text-xl sm:text-2xl font-bold text-gray-900">NRs.{offer.discountedPrice}</span>
+                      <span className="text-base sm:text-lg text-gray-500 line-through">NRs.{offer.originalPrice}</span>
                     </div>
                     <p className="text-xs sm:text-sm text-green-600 font-medium">
-                      You save ₹{calculateSavings(offer.originalPrice, offer.discountedPrice)}!
+                                              You save NRs.{calculateSavings(offer.originalPrice, offer.discountedPrice)}!
                     </p>
                   </div>
                 </div>

@@ -66,7 +66,7 @@ const Header = () => {
                       className="block px-4 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary-600"
                       onClick={() => setIsMenuDropdownOpen(false)}
                     >
-                      Restaurants
+                      Home Chefs
                     </Link>
                   </div>
                 )}
@@ -200,7 +200,7 @@ const Header = () => {
                   className="block px-3 py-2 text-gray-700 hover:text-primary-600 font-medium transition-colors duration-200"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  Restaurants
+                  Home Chefs
                 </Link>
                 <Link
                   to="/feed"

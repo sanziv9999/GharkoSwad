@@ -510,19 +510,49 @@ const OrderTracking = () => {
 
       try {
         setLoading(true);
+        console.log('Fetching order details for orderId:', orderId, 'and userId:', user.id);
         const response = await apiService.get(`/orders/user/${user.id}/status`);
         console.log('Orders response:', response);
         
         if (response.data && Array.isArray(response.data)) {
-          const foundOrder = response.data.find(o => o.orderId === parseInt(orderId));
+          console.log('Available orders:', response.data.map(o => ({ orderId: o.orderId, status: o.status })));
+          console.log('Looking for orderId:', parseInt(orderId));
+          
+          const foundOrder = response.data.find(o => {
+            console.log('Comparing:', o.orderId, 'with', parseInt(orderId), '- Match:', o.orderId === parseInt(orderId));
+            return o.orderId === parseInt(orderId);
+          });
+          
           if (foundOrder) {
+            console.log('Found order:', foundOrder);
             setOrder(foundOrder);
             initializeDriverLocation(foundOrder);
             setCurrentStep(getCurrentStepIndex(foundOrder.status));
           } else {
-            setError('Order not found');
+            console.log('Order not found in available orders');
+            console.log('Available orderIds:', response.data.map(o => o.orderId));
+            
+            // Try alternative method - fetch order by ID directly
+            try {
+              console.log('Trying alternative method - fetching order by ID directly');
+              const directResponse = await apiService.get(`/orders/${orderId}`);
+              console.log('Direct order response:', directResponse);
+              
+              if (directResponse.data) {
+                console.log('Found order via direct method:', directResponse.data);
+                setOrder(directResponse.data);
+                initializeDriverLocation(directResponse.data);
+                setCurrentStep(getCurrentStepIndex(directResponse.data.status));
+              } else {
+                setError(`Order with ID ${orderId} not found`);
+              }
+            } catch (directErr) {
+              console.error('Direct order fetch failed:', directErr);
+              setError(`Order with ID ${orderId} not found`);
+            }
           }
         } else {
+          console.log('Invalid response format:', response);
           setError('Failed to fetch order details');
         }
       } catch (err) {
@@ -539,7 +569,17 @@ const OrderTracking = () => {
   // Initialize driver location based on order status
   const initializeDriverLocation = (orderData) => {
     try {
+      console.log('Initializing driver location for order:', orderData);
+      console.log('Raw deliveryCoordinates:', orderData.deliveryCoordinates);
+      
+      if (!orderData.deliveryCoordinates) {
+        console.error('No deliveryCoordinates found in order data');
+        setDriverLocation([27.7172, 85.3240]); // Default location
+        return;
+      }
+      
       const deliveryCoords = JSON.parse(orderData.deliveryCoordinates);
+      console.log('Parsed delivery coordinates:', deliveryCoords);
       
       // Set initial driver location based on order status
       if (orderData.status === 'PLACED' || orderData.status === 'CONFIRMED') {
@@ -557,17 +597,61 @@ const OrderTracking = () => {
         setDriverLocation(deliveryCoords);
         setEstimatedTime('Delivered!');
       }
+      
+      console.log('Set driver location to:', driverLocation);
     } catch (err) {
       console.error('Error parsing delivery coordinates:', err);
+      console.error('Order data:', orderData);
       setDriverLocation([27.7172, 85.3240]); // Default location
     }
   };
 
-  // Real-time driver movement simulation
+  // Real-time driver location fetching from delivery person's GPS
   useEffect(() => {
-    if (!order || !driverLocation || order.status === 'DELIVERED') return;
+    if (!order || order.status === 'DELIVERED') return;
 
-    intervalRef.current = setInterval(() => {
+         const fetchDriverLocation = async () => {
+       try {
+         // Check if order is picked up and we can fetch real location
+         if (order.status === 'PICKED_UP') {
+           // Try different possible fields for delivery person ID
+           const deliveryPersonId = order.deliveryPersonId || order.deliveryId || order.assignedDeliveryId;
+           
+           if (deliveryPersonId) {
+             console.log('Fetching location for delivery person:', deliveryPersonId);
+             const response = await apiService.getDeliveryLocation(deliveryPersonId);
+             
+             if (response && response.data && response.data.latitude && response.data.longitude) {
+               const newLocation = [response.data.latitude, response.data.longitude];
+               setDriverLocation(newLocation);
+               
+               // Calculate real distance and ETA
+               const deliveryCoords = JSON.parse(order.deliveryCoordinates);
+               const distance = calculateDistance(newLocation, deliveryCoords);
+               const eta = Math.max(5, Math.round(distance * 3)); // Rough ETA calculation
+               setEstimatedTime(`${eta} min`);
+               
+               console.log('Updated driver location from GPS:', newLocation);
+               return; // Successfully got real location, skip simulation
+             }
+           }
+         }
+         
+         // If we reach here, either order is not picked up or real location unavailable
+         // Fall back to simulated movement
+         if (driverLocation && order.status !== 'DELIVERED') {
+           simulateDriverMovement();
+         }
+       } catch (err) {
+         console.warn('Error fetching driver location:', err);
+         // Fall back to simulated movement if real location unavailable
+         if (driverLocation && order.status !== 'DELIVERED') {
+           simulateDriverMovement();
+         }
+       }
+     };
+
+    const simulateDriverMovement = () => {
       setDriverLocation(prev => {
         if (!prev) return prev;
         
@@ -588,8 +672,8 @@ const OrderTracking = () => {
             return deliveryCoords;
           }
           
-          // Move driver closer to destination
-          const moveSpeed = 0.0001; // Adjust for faster/slower movement
+          // Move driver closer to destination (slower than before)
+          const moveSpeed = 0.00005; // Reduced speed for more realistic movement
           const latMove = latDiff * moveSpeed;
           const lngMove = lngDiff * moveSpeed;
           
@@ -611,11 +695,18 @@ const OrderTracking = () => {
           
           return [newLat, newLng];
         } catch (err) {
-          console.error('Error updating driver location:', err);
+          console.error('Error in simulated movement:', err);
           return prev;
         }
       });
-    }, 2000); // Update every 2 seconds
+    };
+
+    // Try to fetch real location first, then fall back to simulation
+    fetchDriverLocation();
+
+    intervalRef.current = setInterval(() => {
+      fetchDriverLocation();
+    }, 5000); // Check for real location every 5 seconds
 
     return () => {
       if (intervalRef.current) {
@@ -623,6 +714,19 @@ const OrderTracking = () => {
       }
     };
   }, [order, driverLocation]);
+
+  // Helper function to calculate distance between two points
+  const calculateDistance = (point1, point2) => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (point2[0] - point1[0]) * Math.PI / 180;
+    const dLon = (point2[1] - point1[1]) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(point1[0] * Math.PI / 180) * Math.cos(point2[0] * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Distance in km
+  };
 
   const getStatusInfo = (status) => {
     const statusMap = {
@@ -942,10 +1046,18 @@ const OrderTracking = () => {
   if (error || !order) {
     return (
       <div className="min-h-screen bg-gray-50 py-8 flex items-center justify-center">
-        <Card className="p-6 text-center">
+        <Card className="p-6 text-center max-w-md">
           <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Order not found</h2>
-          <p className="text-gray-600 mb-6">{error || 'Please check your order ID and try again.'}</p>
+          <p className="text-gray-600 mb-4">{error || 'Please check your order ID and try again.'}</p>
+          <div className="bg-gray-100 p-4 rounded-lg mb-6 text-left">
+            <p className="text-sm text-gray-700">
+              <strong>Debug Info:</strong><br />
+              Order ID from URL: {orderId}<br />
+              User ID: {user?.id}<br />
+              {error && `Error: ${error}`}
+            </p>
+          </div>
           <div className="space-x-4">
             <Button onClick={() => navigate('/my-orders')}>
               View My Orders
@@ -1263,7 +1375,7 @@ const OrderTracking = () => {
                 </div>
                 <div className="flex items-center justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-600 text-sm lg:text-base">Total Amount</span>
-                  <span className="font-bold text-lg lg:text-xl text-green-600">₹{order.amount?.toFixed(2)}</span>
+                  <span className="font-bold text-lg lg:text-xl text-green-600">NRs.{order.amount?.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-600 text-sm lg:text-base">Payment Method</span>
@@ -1353,11 +1465,11 @@ const OrderTracking = () => {
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-gray-900 text-sm lg:text-base truncate">{foodItem.name}</h4>
                         <p className="text-xs lg:text-sm text-gray-600 mb-1">Qty: {orderItem.quantity}</p>
-                        <p className="text-xs text-gray-500">₹{foodItem.price?.toFixed(2)} each</p>
+                        <p className="text-xs text-gray-500">NRs.{foodItem.price?.toFixed(2)} each</p>
                       </div>
                                              <div className="text-right flex-shrink-0">
                          <p className="font-bold text-sm lg:text-base text-emerald-600">
-                           ₹{(foodItem.price * orderItem.quantity)?.toFixed(2)}
+                           NRs.{(foodItem.price * orderItem.quantity)?.toFixed(2)}
                          </p>
                       </div>
                     </div>
@@ -1443,9 +1555,9 @@ const OrderTracking = () => {
                   </div>
                   
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">₹{foodItem.price?.toFixed(2)}</p>
+                    <p className="font-semibold text-gray-900">NRs.{foodItem.price?.toFixed(2)}</p>
                     <p className="text-sm text-primary-600">
-                      ₹{(foodItem.price * orderItem.quantity)?.toFixed(2)}
+                      NRs.{(foodItem.price * orderItem.quantity)?.toFixed(2)}
                     </p>
                   </div>
                 </div>

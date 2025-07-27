@@ -582,7 +582,7 @@ const ChefDashboard = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-yellow-600 text-sm font-semibold uppercase tracking-wide">Revenue</p>
-                    <p className="text-3xl font-bold text-yellow-900 mt-2">₹{dashboardStats.revenue.toFixed(0)}</p>
+                    <p className="text-3xl font-bold text-yellow-900 mt-2">NRs.{dashboardStats.revenue.toFixed(0)}</p>
                   </div>
                   <div className="w-14 h-14 bg-yellow-500 rounded-2xl flex items-center justify-center">
                     <DollarSign className="w-7 h-7 text-white" />
@@ -623,7 +623,7 @@ const ChefDashboard = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold text-gray-900">₹{item.price}</div>
+                        <div className="text-lg font-bold text-gray-900">NRs.{item.price}</div>
                       </div>
                     </div>
                   ))}
@@ -649,7 +649,7 @@ const ChefDashboard = () => {
                         }>
                           {order.status}
                         </Badge>
-                        <div className="text-sm font-semibold text-gray-900 mt-1">₹{order.amount}</div>
+                        <div className="text-sm font-semibold text-gray-900 mt-1">NRs.{order.amount}</div>
                       </div>
                     </div>
                   ))}
@@ -732,9 +732,9 @@ const ChefDashboard = () => {
                         
                         <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center space-x-2">
-                            <span className="text-2xl font-bold text-gray-900">₹{item.price}</span>
+                            <span className="text-2xl font-bold text-gray-900">NRs.{item.price}</span>
                             {item.originalPrice && item.originalPrice !== item.price && (
-                            <span className="text-sm text-gray-500 line-through">₹{item.originalPrice}</span>
+                                                          <span className="text-sm text-gray-500 line-through">NRs.{item.originalPrice}</span>
                             )}
                         </div>
                         {item.preparationTime && (
@@ -885,7 +885,7 @@ const ChefDashboard = () => {
                           </h4>
                           <div className="space-y-2 text-sm">
                             <div className="text-2xl font-bold text-emerald-600">
-                              ₹{order.amount ? order.amount.toFixed(2) : '0.00'}
+                              NRs.{order.amount ? order.amount.toFixed(2) : '0.00'}
                             </div>
                             <div className="text-gray-600">{order.paymentMethod || 'N/A'}</div>
                             <Badge variant="success" className="text-xs">
@@ -916,7 +916,7 @@ const ChefDashboard = () => {
                                    <h5 className="font-semibold text-gray-900">{item.foodItem.name}</h5>
                                    <p className="text-sm text-gray-600 line-clamp-1">{item.foodItem.description}</p>
                                    <div className="flex items-center space-x-2 mt-1">
-                                     <span className="text-sm text-gray-500">₹{item.foodItem.price}</span>
+                                     <span className="text-sm text-gray-500">NRs.{item.foodItem.price}</span>
                                      {item.foodItem.preparationTime && (
                                        <>
                                          <span className="text-gray-400">•</span>
@@ -928,7 +928,7 @@ const ChefDashboard = () => {
                                  <div className="text-right">
                                    <div className="text-lg font-bold text-gray-900">x{item.quantity}</div>
                                    <div className="text-sm text-gray-600">
-                                     ₹{(item.foodItem.price * item.quantity).toFixed(2)}
+                                     NRs.{(item.foodItem.price * item.quantity).toFixed(2)}
                                    </div>
                                  </div>
                                </div>
@@ -1103,7 +1103,7 @@ const ChefDashboard = () => {
                   placeholder="e.g., Truffle Pasta"
                 />
                 <Input 
-                  label="Price (₹)" 
+                  label="Price (NRs.)" 
                   name="originalPrice" 
                   type="number" 
                   value={formData.originalPrice} 

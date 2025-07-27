@@ -116,7 +116,7 @@ const OrderSuccess = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Amount:</span>
-                  <span className="font-medium">₹{orderDetails.amount?.toFixed(2) || 'N/A'}</span>
+                  <span className="font-medium">NRs.{orderDetails.amount?.toFixed(2) || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Payment Method:</span>

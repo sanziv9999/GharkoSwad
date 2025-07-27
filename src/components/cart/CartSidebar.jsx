@@ -99,7 +99,7 @@ const CartSidebar = () => {
                         <h3 className="font-semibold text-gray-900 truncate">{item.name || 'Unknown Item'}</h3>
                         <p className="text-sm text-gray-600 mb-1">{item.chef || 'Unknown Chef'}</p>
                         <div className="flex items-center justify-between">
-                          <p className="text-lg font-bold text-primary-600">₹{(item.price || 0).toFixed(2)}</p>
+                          <p className="text-lg font-bold text-primary-600">NRs.{(item.price || 0).toFixed(2)}</p>
                           <button
                             onClick={() => handleRemoveFromCart(item.foodId)}
                             className="p-1 hover:bg-red-100 rounded transition-colors duration-200"
@@ -132,7 +132,7 @@ const CartSidebar = () => {
                         </button>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-gray-900">₹{((item.price || 0) * (item.quantity || 0)).toFixed(2)}</p>
+                        <p className="font-bold text-gray-900">NRs.{((item.price || 0) * (item.quantity || 0)).toFixed(2)}</p>
                         <p className="text-xs text-gray-500">Total</p>
                       </div>
                     </div>
@@ -149,7 +149,7 @@ const CartSidebar = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Subtotal</span>
-                  <span className="font-medium">₹{getTotalPrice().toFixed(2)}</span>
+                  <span className="font-medium">NRs.{getTotalPrice().toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Delivery Fee</span>
@@ -158,7 +158,7 @@ const CartSidebar = () => {
                 <div className="border-t border-gray-200 pt-2">
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-semibold text-gray-900">Total</span>
-                    <span className="text-2xl font-bold text-primary-600">₹{getTotalPrice().toFixed(2)}</span>
+                    <span className="text-2xl font-bold text-primary-600">NRs.{getTotalPrice().toFixed(2)}</span>
                   </div>
                 </div>
               </div>
