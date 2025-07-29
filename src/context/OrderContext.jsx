@@ -2,7 +2,17 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { apiService } from '../api/apiService';
 import { useAuth } from '../context/AuthContext';
 
-const OrderContext = createContext(undefined);
+const OrderContext = createContext({
+  orders: [],
+  loading: true,
+  error: null,
+  createOrder: () => {},
+  verifyEsewaPayment: () => {},
+  updateOrderStatus: () => {},
+  getOrdersByUser: () => [],
+  getOrdersByDriver: () => [],
+  getActiveOrders: () => [],
+});
 
 export const useOrders = () => {
   const context = useContext(OrderContext);
@@ -15,24 +25,34 @@ export const useOrders = () => {
 export const OrderProvider = ({ children }) => {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchOrders = async () => {
-      if (!user?.id) return;
+      if (!user?.id) {
+        if (isMounted) setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
         const result = await apiService.get(`/orders/user/${user.id}`, localStorage.getItem('token'));
-        setOrders(result.data || []);
+        if (isMounted) setOrders(result.data || []);
       } catch (err) {
-        setError(err.message || 'Failed to load orders');
+        if (isMounted) setError(err.message || 'Failed to load orders');
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
+
     fetchOrders();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user?.id]);
 
   const createOrder = async (orderData) => {
@@ -74,11 +94,8 @@ export const OrderProvider = ({ children }) => {
     try {
       const response = await apiService.verifyEsewaPayment(transactionUuid, amount);
       if (response.status === 'success') {
-        // Update the local orders state with the verified order
         const updatedOrder = response.data;
-        setOrders(prev => prev.map(order =>
-          order.id === updatedOrder.id ? updatedOrder : order
-        ));
+        setOrders(prev => prev.map(order => order.id === updatedOrder.id ? updatedOrder : order));
       }
       return response;
     } catch (err) {

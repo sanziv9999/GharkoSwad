@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, MapPin, Phone, Package, Truck, Home, CheckCircle, Calendar, DollarSign, ShoppingBag, X, AlertTriangle } from 'lucide-react';
+import { Clock, MapPin, Phone, Package, Truck, Home, CheckCircle, Calendar, DollarSign, ShoppingBag, X, AlertTriangle, Filter } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../api/apiService';
 import Card from '../components/ui/Card';
@@ -21,6 +21,71 @@ const MyOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedItems, setSelectedItems] = useState([]);
   const [cancelling, setCancelling] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState('All');
+
+  // Define filter options
+  const filterOptions = [
+    { key: 'All', label: 'All Orders', count: 0 },
+    { key: 'Recent', label: 'Recent', count: 0 },
+    { key: 'Active', label: 'Active', count: 0 },
+    { key: 'Delivered', label: 'Delivered', count: 0 },
+    { key: 'Cancelled', label: 'Cancelled', count: 0 }
+  ];
+
+  // Helper function to check if order is recent (within last 7 days)
+  const isRecentOrder = (orderDate) => {
+    const orderDateTime = new Date(orderDate);
+    const now = new Date();
+    const diffInDays = (now - orderDateTime) / (1000 * 60 * 60 * 24);
+    return diffInDays <= 7;
+  };
+
+  // Helper function to check if order is active
+  const isActiveOrder = (status) => {
+    const activeStatuses = ['PLACED', 'CONFIRMED', 'PREPARING', 'READY', 'PICKED_UP'];
+    return activeStatuses.includes(status);
+  };
+
+  // Sort orders by most recent first and apply filters
+  const filteredAndSortedOrders = React.useMemo(() => {
+    let filtered = [...orders];
+
+    // Apply filters
+    switch (selectedFilter) {
+      case 'Recent':
+        filtered = filtered.filter(order => isRecentOrder(order.orderDate));
+        break;
+      case 'Active':
+        filtered = filtered.filter(order => isActiveOrder(order.status));
+        break;
+      case 'Delivered':
+        filtered = filtered.filter(order => order.status === 'DELIVERED');
+        break;
+      case 'Cancelled':
+        filtered = filtered.filter(order => order.status === 'CANCELLED');
+        break;
+      default:
+        // 'All' - no filtering
+        break;
+    }
+
+    // Sort by orderDate in descending order (most recent first)
+    filtered.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
+
+    return filtered;
+  }, [orders, selectedFilter]);
+
+  // Calculate filter counts
+  const getFilterCounts = React.useMemo(() => {
+    const counts = {
+      All: orders.length,
+      Recent: orders.filter(order => isRecentOrder(order.orderDate)).length,
+      Active: orders.filter(order => isActiveOrder(order.status)).length,
+      Delivered: orders.filter(order => order.status === 'DELIVERED').length,
+      Cancelled: orders.filter(order => order.status === 'CANCELLED').length
+    };
+    return counts;
+  }, [orders]);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -207,7 +272,7 @@ const MyOrders = () => {
             </div>
             <div className="flex items-center space-x-4">
               <Badge variant="success">
-                📦 {orders.length} Orders
+                📦 {filteredAndSortedOrders.length} Orders
               </Badge>
               <Button onClick={() => navigate('/menu')} variant="outline">
                 <ShoppingBag className="w-4 h-4 mr-2" />
@@ -216,6 +281,46 @@ const MyOrders = () => {
             </div>
           </div>
         </div>
+
+        {/* Filters */}
+        {orders.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <Filter className="w-5 h-5 text-gray-500" />
+              <h3 className="text-lg font-semibold text-gray-900">Filter Orders</h3>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {filterOptions.map((filter) => {
+                const count = getFilterCounts[filter.key] || 0;
+                const isActive = selectedFilter === filter.key;
+                
+                return (
+                  <Button
+                    key={filter.key}
+                    variant={isActive ? "primary" : "outline"}
+                    onClick={() => setSelectedFilter(filter.key)}
+                    className={`flex items-center justify-between min-w-fit px-4 py-2 ${
+                      isActive 
+                        ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
+                        : 'text-gray-700 border-gray-300 hover:border-green-500'
+                    }`}
+                  >
+                    <span className="mr-2">{filter.label}</span>
+                    <span 
+                      className={`inline-flex items-center justify-center min-w-[20px] h-5 px-2 py-0.5 text-xs font-medium rounded-full ${
+                        isActive 
+                          ? 'bg-green-500 text-white' 
+                          : 'bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {orders.length === 0 ? (
           <Card className="p-12 text-center">
@@ -229,9 +334,21 @@ const MyOrders = () => {
               Browse Menu
             </Button>
           </Card>
+        ) : filteredAndSortedOrders.length === 0 ? (
+          <Card className="p-12 text-center">
+            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Filter className="w-12 h-12 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No orders match your filter</h3>
+            <p className="text-gray-600 mb-6">Try selecting a different filter to view your orders.</p>
+            <Button onClick={() => setSelectedFilter('All')} variant="outline">
+              <Package className="w-4 h-4 mr-2" />
+              Show All Orders
+            </Button>
+          </Card>
         ) : (
           <div className="space-y-6">
-            {orders.map((order) => {
+            {filteredAndSortedOrders.map((order) => {
               const statusInfo = getStatusInfo(order.status);
               const paymentStatusInfo = getPaymentStatusInfo(order.paymentStatus);
               const StatusIcon = statusInfo.icon;

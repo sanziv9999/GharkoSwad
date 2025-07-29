@@ -215,19 +215,19 @@ const Menu = () => {
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between">
+                <div className="space-y-3">
                   <div>
                     <div className="flex items-center space-x-2">
-                      <span className="text-2xl font-bold text-gray-900">NRs.{item.price.toFixed(2)}</span>
+                      <span className="text-xl font-bold text-gray-900">NRs.{item.price.toFixed(2)}</span>
                       {item.originalPrice && (
-                                                  <span className="text-lg text-gray-500 line-through">NRs.{item.originalPrice.toFixed(2)}</span>
+                        <span className="text-base text-gray-500 line-through">NRs.{item.originalPrice.toFixed(2)}</span>
                       )}
                     </div>
                     <p className="text-sm text-gray-500">{item.reviews || 0} reviews</p>
                   </div>
                   <Button
                     onClick={() => handleAddToCart(item)}
-                    className="flex items-center space-x-2 px-6"
+                    className="w-full flex items-center justify-center space-x-2 py-3"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Add to Cart</span>

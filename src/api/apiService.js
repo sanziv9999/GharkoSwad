@@ -9,7 +9,7 @@ const handleResponse = async (response) => {
 
   if (!response.ok) {
     if (contentType && contentType.includes('application/json')) {
-      const error = await response.json().catch(() => ({})); // Handle invalid JSON
+      const error = await response.json().catch(() => ({}));
       errorMessage = error.message || JSON.stringify(error) || errorMessage;
     } else {
       errorMessage = await response.text().catch(() => '') || errorMessage;
@@ -19,12 +19,12 @@ const handleResponse = async (response) => {
   }
 
   if (contentType && contentType.includes('application/json')) {
-    const result = await response.json().catch(() => ({})); // Handle invalid JSON
+    const result = await response.json().catch(() => ({}));
     console.log('API response:', result);
-    if (result.status !== 'success' && response.status !== 204) { // Allow 204 No Content
+    if (result.status !== 'success' && response.status !== 204) {
       throw new Error(result.message || 'Operation failed');
     }
-    return result; // Return the full response object { status, message, data }
+    return result;
   }
 
   const text = await response.text().catch(() => '');
@@ -178,7 +178,7 @@ export const apiService = {
     const tokenFromStorage = localStorage.getItem('token');
     console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
     const result = await this.get(endpoint, tokenFromStorage);
-    return result.data; // Return the data array directly
+    return result.data;
   },
 
   async addFood(formData, token = null) {
@@ -200,7 +200,7 @@ export const apiService = {
     const tokenFromStorage = localStorage.getItem('token');
     console.log(`Requesting: ${API_CONFIG.BASE_URL}/food/list with token: ${tokenFromStorage}`);
     const result = await this.get('/food/list', tokenFromStorage);
-    return result.data; // Return the data array directly
+    return result.data;
   },
 
   async addToCart(userId, foodId, quantity = 1, token = null) {
@@ -215,7 +215,7 @@ export const apiService = {
     }
     const endpoint = `/cart?userId=${parsedUserId}&foodId=${parsedFoodId}&quantity=${quantity}`;
     console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
-    const response = await this.post(endpoint, {}, tokenFromStorage); // Empty body, params in URL
+    const response = await this.post(endpoint, {}, tokenFromStorage);
     console.log('Add to cart response:', response);
     return response;
   },
@@ -225,7 +225,7 @@ export const apiService = {
     const endpoint = `/cart?userId=${userId}`;
     console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
     const result = await this.get(endpoint, tokenFromStorage);
-    return result.data || []; // Return the data array or empty array if null/undefined
+    return result.data || [];
   },
 
   async increaseCartQuantity(userId, foodId, token = null) {
@@ -240,7 +240,7 @@ export const apiService = {
     }
     const endpoint = `/cart/increase/${parsedFoodId}?userId=${parsedUserId}`;
     console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
-    return this.put(endpoint, {}, tokenFromStorage); // Using PUT for update
+    return this.put(endpoint, {}, tokenFromStorage);
   },
 
   async decreaseCartQuantity(userId, foodId, token = null) {
@@ -255,7 +255,7 @@ export const apiService = {
     }
     const endpoint = `/cart/decrease/${parsedFoodId}?userId=${parsedUserId}`;
     console.log(`Requesting: ${API_CONFIG.BASE_URL}${endpoint} with token: ${tokenFromStorage}`);
-    return this.put(endpoint, {}, tokenFromStorage); // Using PUT for update
+    return this.put(endpoint, {}, tokenFromStorage);
   },
 
   async deleteCartItem(userId, foodId, token = null) {
@@ -284,14 +284,13 @@ export const apiService = {
     const tokenFromStorage = localStorage.getItem('token');
     console.log('Placing order request:', orderData);
     const response = await this.post('/orders/place', orderData, tokenFromStorage);
-    return response.data; // Return the OrderResponse data
+    return response.data;
   },
 
   async verifyEsewaPayment(transactionUuid, amount, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     console.log('Verifying eSewa payment:', { transactionUuid, amount });
     
-    // Validate input parameters
     if (!transactionUuid || !amount) {
       throw new Error('transactionUuid and amount are required');
     }
@@ -302,28 +301,25 @@ export const apiService = {
     }
     
     const requestBody = {
-      transaction_uuid: transactionUuid, // Match backend DTO field name
-      amount: parsedAmount // Ensure amount is a number
+      transaction_uuid: transactionUuid,
+      amount: parsedAmount
     };
     
     console.log('Sending verification request with body:', requestBody);
     const response = await this.post('/orders/verify-esewa', requestBody, tokenFromStorage);
     console.log('Verification response:', response);
-    return response; // Return full response object
+    return response;
   },
 
   async cancelOrder(userId, orderIdOrItems, token = null) {
     const tokenFromStorage = localStorage.getItem('token');
     console.log('Cancelling order:', { userId, orderIdOrItems });
     
-    // Validate input parameters
     if (!userId) {
       throw new Error('userId is required');
     }
     
-    // Check if second parameter is an array (selected items) or orderId
     if (Array.isArray(orderIdOrItems)) {
-      // Cancelling specific order items
       if (orderIdOrItems.length === 0) {
         throw new Error('At least one item must be selected for cancellation');
       }
@@ -338,7 +334,6 @@ export const apiService = {
       console.log('Cancel order items response:', response);
       return response;
     } else {
-      // Cancelling entire order
       const orderId = orderIdOrItems;
       if (!orderId) {
         throw new Error('orderId is required');
@@ -401,7 +396,6 @@ export const apiService = {
     return response;
   },
 
-  // Delivery-specific API methods
   async getReadyOrders(userId, token = null) {
     const tokenFromStorage = localStorage.getItem('token') || token;
     if (!userId) throw new Error('userId is required');
@@ -484,7 +478,7 @@ export const apiService = {
   async getAllChefs(token = null) {
     const tokenFromStorage = localStorage.getItem('token') || token;
     const result = await this.get('/users/chefs', tokenFromStorage);
-    return result.data; // Assuming the API returns { status, message, data: [...] }
+    return result.data;
   },
 
   async getUserProfile(userId, token = null) {
@@ -506,5 +500,99 @@ export const apiService = {
       body: formData,
     });
     return handleResponse(response);
-  }
+  },
+
+  async getFoodFeeds(token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    console.log(`Requesting: ${API_CONFIG.BASE_URL}/food-feed with token: ${tokenFromStorage}`);
+    try {
+      const result = await this.get('/food-feed', tokenFromStorage);
+      return result.data || [];
+    } catch (error) {
+      console.error('Error fetching food feeds:', error);
+      throw new Error('Failed to fetch food feeds');
+    }
+  },
+
+  async getFoodFeedById(id, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    console.log(`Requesting: ${API_CONFIG.BASE_URL}/food-feed/${id} with token: ${tokenFromStorage}`);
+    const result = await this.get(`/food-feed/${id}`, tokenFromStorage);
+    return result.data;
+  },
+
+  async createFoodFeed(formData, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    console.log(`Creating food feed with formData:`, formData);
+    const headers = {
+      ...(tokenFromStorage && { Authorization: `Bearer ${tokenFromStorage}` }),
+    };
+    const response = await fetch(`${API_CONFIG.BASE_URL}/food-feed`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    return handleResponse(response);
+  },
+
+  async addComment(feedId, userId, text, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    
+    console.log(`Adding comment to feedId: ${feedId} with userId: ${userId} and text: ${text}`);
+    
+    // Send both userId and text in request body as form-encoded data
+    const formData = new URLSearchParams();
+    formData.append('userId', userId);
+    formData.append('text', text);
+    
+    const response = await fetch(`${API_CONFIG.BASE_URL}/food-feed/${feedId}/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        ...(tokenFromStorage && { Authorization: `Bearer ${tokenFromStorage}` }),
+      },
+      body: formData.toString(),
+    });
+    
+    return handleResponse(response);
+  },
+
+  async likeFoodFeed(feedId, userId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    
+    console.log(`Liking food feed: ${feedId} with userId: ${userId}`);
+    // Send userId as query parameter instead of request body
+    const result = await this.post(`/food-feed/${feedId}/like?userId=${userId}`, {}, tokenFromStorage);
+    return result;
+  },
+
+  async toggleLike(feedId, userId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    const data = { userId };
+    console.log(`Toggling like for feedId: ${feedId}`, data);
+    const result = await this.post(`/food-feed/${feedId}/like`, data, tokenFromStorage);
+    return result;
+  },
+
+  async getUserFoodFeeds(userId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    console.log(`Requesting: ${API_CONFIG.BASE_URL}/food-feed/user/${userId} with token: ${tokenFromStorage}`);
+    const result = await this.get(`/food-feed/user/${userId}`, tokenFromStorage);
+    return result.data || [];
+  },
+
+  async deleteFoodFeed(feedId, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    console.log(`Deleting food feed: ${feedId}`);
+    const result = await this.delete(`/food-feed/${feedId}`, tokenFromStorage);
+    return result;
+  },
+
+  async updateFoodFeedStatus(feedId, status, token = null) {
+    const tokenFromStorage = localStorage.getItem('token') || token;
+    const data = { status };
+    console.log(`Updating food feed status: ${feedId} to ${status}`);
+    const result = await this.put(`/food-feed/${feedId}/status`, data, tokenFromStorage);
+    return result;
+  },
 };

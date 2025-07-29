@@ -304,7 +304,9 @@ const RoutingControl = ({ driverLocation, customerLocation, onRouteFound }) => {
         show: false, // Hide the directions panel
         router: L.Routing.osrmv1({
           serviceUrl: 'https://router.project-osrm.org/route/v1',
-          timeout: 10000
+          timeout: 15000, // Increased timeout to 15 seconds
+          profile: 'driving', // Specify driving profile
+          useHints: false // Disable hints for better reliability
         })
       })
       .on('routesfound', function(e) {
@@ -314,6 +316,7 @@ const RoutingControl = ({ driverLocation, customerLocation, onRouteFound }) => {
             const route = routes[0];
             const distance = (route.summary.totalDistance / 1000).toFixed(2); // km
             const time = Math.round(route.summary.totalTime / 60); // min
+            console.log(`Route found: ${distance}km, ${time} min`);
             onRouteFound && onRouteFound({ distance, time, route });
           }
         } catch (err) {
@@ -322,6 +325,32 @@ const RoutingControl = ({ driverLocation, customerLocation, onRouteFound }) => {
       })
       .on('routingerror', function(e) {
         console.warn('Routing error:', e.error);
+        
+        // Fallback: Calculate straight-line distance if routing fails
+        try {
+          if (driverLocation && customerLocation) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (customerLocation[0] - driverLocation[0]) * Math.PI / 180;
+            const dLon = (customerLocation[1] - driverLocation[1]) * Math.PI / 180;
+            const a = 
+              Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(driverLocation[0] * Math.PI / 180) * Math.cos(customerLocation[0] * Math.PI / 180) * 
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distance = (R * c).toFixed(2); // Distance in km
+            const time = Math.max(5, Math.round(distance * 4)); // Rough time estimate
+            
+            console.log(`Fallback route calculation: ${distance}km, ${time} min`);
+            onRouteFound && onRouteFound({ 
+              distance, 
+              time, 
+              route: null, 
+              fallback: true 
+            });
+          }
+        } catch (fallbackErr) {
+          console.error('Fallback distance calculation failed:', fallbackErr);
+        }
       })
       .addTo(map);
     } catch (err) {
@@ -581,28 +610,43 @@ const OrderTracking = () => {
       const deliveryCoords = JSON.parse(orderData.deliveryCoordinates);
       console.log('Parsed delivery coordinates:', deliveryCoords);
       
-      // Set initial driver location based on order status
+      let initialLocation;
+      let initialETA;
+      
+      // Determine initial driver location based on order status
       if (orderData.status === 'PLACED' || orderData.status === 'CONFIRMED') {
         // Driver starts from restaurant location (simulated)
-        setDriverLocation([deliveryCoords[0] - 0.01, deliveryCoords[1] - 0.01]);
+        initialLocation = [deliveryCoords[0] - 0.01, deliveryCoords[1] - 0.01];
+        initialETA = '20-25 min';
       } else if (orderData.status === 'PREPARING' || orderData.status === 'READY') {
         // Driver is at restaurant
-        setDriverLocation([deliveryCoords[0] - 0.005, deliveryCoords[1] - 0.005]);
+        initialLocation = [deliveryCoords[0] - 0.005, deliveryCoords[1] - 0.005];
+        initialETA = '15-20 min';
       } else if (orderData.status === 'PICKED_UP') {
-        // Driver is on the way
-        setDriverLocation([deliveryCoords[0] - 0.003, deliveryCoords[1] - 0.003]);
-        setEstimatedTime('10-15 min');
+        // Driver is on the way - will be updated by real GPS soon
+        initialLocation = [deliveryCoords[0] - 0.003, deliveryCoords[1] - 0.003];
+        initialETA = '10-15 min';
       } else if (orderData.status === 'DELIVERED') {
         // Driver has reached destination
-        setDriverLocation(deliveryCoords);
-        setEstimatedTime('Delivered!');
+        initialLocation = deliveryCoords;
+        initialETA = 'Delivered!';
+      } else {
+        // Default case
+        initialLocation = [deliveryCoords[0] - 0.01, deliveryCoords[1] - 0.01];
+        initialETA = '20-25 min';
       }
       
-      console.log('Set driver location to:', driverLocation);
+      // Set both states together to minimize re-renders
+      setDriverLocation(initialLocation);
+      setEstimatedTime(initialETA);
+      
+      console.log('Set initial driver location to:', initialLocation);
+      console.log('Set initial ETA to:', initialETA);
     } catch (err) {
       console.error('Error parsing delivery coordinates:', err);
       console.error('Order data:', orderData);
       setDriverLocation([27.7172, 85.3240]); // Default location
+      setEstimatedTime('Unknown');
     }
   };
 
@@ -610,47 +654,80 @@ const OrderTracking = () => {
   useEffect(() => {
     if (!order || order.status === 'DELIVERED') return;
 
-         const fetchDriverLocation = async () => {
-       try {
-         // Check if order is picked up and we can fetch real location
-         if (order.status === 'PICKED_UP') {
-           // Try different possible fields for delivery person ID
-           const deliveryPersonId = order.deliveryPersonId || order.deliveryId || order.assignedDeliveryId;
-           
-           if (deliveryPersonId) {
-             console.log('Fetching location for delivery person:', deliveryPersonId);
-             const response = await apiService.getDeliveryLocation(deliveryPersonId);
-             
-             if (response && response.data && response.data.latitude && response.data.longitude) {
-               const newLocation = [response.data.latitude, response.data.longitude];
-               setDriverLocation(newLocation);
-               
-               // Calculate real distance and ETA
-               const deliveryCoords = JSON.parse(order.deliveryCoordinates);
-               const distance = calculateDistance(newLocation, deliveryCoords);
-               const eta = Math.max(5, Math.round(distance * 3)); // Rough ETA calculation
-               setEstimatedTime(`${eta} min`);
-               
-               console.log('Updated driver location from GPS:', newLocation);
-               return; // Successfully got real location, skip simulation
-             }
-           }
-         }
-         
-         // If we reach here, either order is not picked up or real location unavailable
-         // Fall back to simulated movement
-         if (driverLocation && order.status !== 'DELIVERED') {
-           simulateDriverMovement();
-         }
-       } catch (err) {
-         console.warn('Error fetching driver location:', err);
-         // Fall back to simulated movement if real location unavailable
-         if (driverLocation && order.status !== 'DELIVERED') {
-           simulateDriverMovement();
-         }
-       }
-     };
+    const fetchDriverLocation = async () => {
+      try {
+        // Check if order is picked up and we can fetch real location
+        if (order.status === 'PICKED_UP') {
+          // Try different possible fields for delivery person ID
+          const deliveryPersonId = order.deliveryPersonId || order.deliveryId || order.assignedDeliveryId;
+          
+          console.log('Order data for GPS fetch:', {
+            orderId: order.orderId,
+            status: order.status,
+            deliveryPersonId,
+            allOrderFields: Object.keys(order)
+          });
+          
+          if (deliveryPersonId) {
+            console.log('Fetching real GPS location for delivery person:', deliveryPersonId);
+            try {
+              const response = await apiService.getDeliveryLocation(deliveryPersonId);
+              console.log('GPS API response:', response);
+              
+              if (response && response.data && response.data.latitude && response.data.longitude) {
+                const newLocation = [response.data.latitude, response.data.longitude];
+                
+                setDriverLocation(prev => {
+                  // Only update if location actually changed
+                  if (!prev || Math.abs(prev[0] - newLocation[0]) > 0.0001 || Math.abs(prev[1] - newLocation[1]) > 0.0001) {
+                    console.log('Updated driver location from real GPS:', newLocation);
+                    
+                    // Calculate real distance and ETA
+                    try {
+                      const deliveryCoords = JSON.parse(order.deliveryCoordinates);
+                      const distance = calculateDistance(newLocation, deliveryCoords);
+                      const eta = Math.max(5, Math.round(distance * 3)); // Rough ETA calculation
+                      setEstimatedTime(`${eta} min`);
+                    } catch (coordErr) {
+                      console.error('Error calculating distance:', coordErr);
+                    }
+                    
+                    return newLocation;
+                  }
+                  return prev; // No change needed
+                });
+                
+                return; // Successfully got real location, skip simulation
+              } else {
+                console.warn('GPS API returned invalid data:', response);
+              }
+            } catch (gpsErr) {
+              console.error('GPS API call failed:', gpsErr);
+            }
+          } else {
+            console.warn('No delivery person ID found in order data. Available fields:', Object.keys(order));
+          }
+        }
+        
+        // Fallback for PICKED_UP orders when GPS is not available
+        if (order.status === 'PICKED_UP') {
+          console.log('GPS data not available for PICKED_UP order. Using simulated movement as fallback.');
+          simulateDriverMovement();
+        } else {
+          console.log('Real GPS location not available, order status:', order.status, 'Will wait for GPS data...');
+        }
+        
+      } catch (err) {
+        console.warn('Error fetching real driver location:', err);
+        // Use simulation as fallback for any order status when GPS fails
+        if (order.status === 'PICKED_UP') {
+          console.log('GPS fetch failed for PICKED_UP order. Using simulated movement as fallback.');
+          simulateDriverMovement();
+        }
+      }
+    };
 
+    // Add the simulation function back for fallback use
     const simulateDriverMovement = () => {
       setDriverLocation(prev => {
         if (!prev) return prev;
@@ -672,8 +749,8 @@ const OrderTracking = () => {
             return deliveryCoords;
           }
           
-          // Move driver closer to destination (slower than before)
-          const moveSpeed = 0.00005; // Reduced speed for more realistic movement
+          // Move driver closer to destination (slower movement for realism)
+          const moveSpeed = 0.00003; // Slower speed for more realistic movement
           const latMove = latDiff * moveSpeed;
           const lngMove = lngDiff * moveSpeed;
           
@@ -701,9 +778,10 @@ const OrderTracking = () => {
       });
     };
 
-    // Try to fetch real location first, then fall back to simulation
+    // Fetch location immediately
     fetchDriverLocation();
 
+    // Set up interval for real-time updates
     intervalRef.current = setInterval(() => {
       fetchDriverLocation();
     }, 5000); // Check for real location every 5 seconds
@@ -713,7 +791,7 @@ const OrderTracking = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [order, driverLocation]);
+  }, [order?.orderId, order?.status]); // Only depend on order ID and status, not driverLocation
 
   // Helper function to calculate distance between two points
   const calculateDistance = (point1, point2) => {

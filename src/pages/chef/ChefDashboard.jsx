@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { User, Plus, Edit, Trash2, Upload, Star, Clock, MapPin, Phone, Mail, ChefHat, TrendingUp, Package, DollarSign } from 'lucide-react';
+import { User, Plus, Edit, Trash2, Upload, Star, Clock, MapPin, Phone, Mail, ChefHat, TrendingUp, Package, DollarSign, MessageCircle, Image, Video } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { apiService } from '../../api/apiService';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import imagePathService from '../../services/imageLocation/imagePath';
+import { getImageUrl, getVideoUrl } from '../../services/imageLocation/imagePath';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Banner from '../../components/ui/Banner';
@@ -42,6 +43,21 @@ const ChefDashboard = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [orders, setOrders] = useState([]);
   const [orderStatusFilter, setOrderStatusFilter] = useState('ALL');
+  const [feeds, setFeeds] = useState([]);
+  const [showCreateFeed, setShowCreateFeed] = useState(false);
+  const [newFeed, setNewFeed] = useState({
+    type: 'text',
+    content: '',
+    image: null,
+    video: null,
+    recipe: {
+      name: '',
+      ingredients: '',
+      instructions: '',
+      cookingTime: '',
+      serves: '',
+    },
+  });
 
   // Fetch and sync user profile on mount
   useEffect(() => {
@@ -186,6 +202,32 @@ const ChefDashboard = () => {
     };
     loadOrders();
   }, []);
+
+  // Load feeds on mount
+  useEffect(() => {
+    const loadFeeds = async () => {
+      try {
+        const userData = JSON.parse(localStorage.getItem('user'));
+        if (!userData || !userData.id) return;
+        const chefId = userData.id;
+        const token = userData.token || user?.token;
+        const result = await apiService.getFoodFeeds(token);
+        if (result && Array.isArray(result)) {
+          // Filter feeds by current chef (check chef.username or chef.id)
+          const chefFeeds = result.filter(feed => 
+            feed.chef && (
+              feed.chef.username === userData.username || 
+              feed.chef.id === chefId
+            )
+          );
+          setFeeds(chefFeeds);
+        }
+      } catch (error) {
+        console.error('Error loading feeds:', error);
+      }
+    };
+    loadFeeds();
+  }, [user?.token]);
 
   const getOrdersByStatus = (status) => {
     if (status === 'ALL') return orders;
@@ -394,6 +436,78 @@ const ChefDashboard = () => {
     resetForm();
   };
 
+  const handleCreateFeed = async (e) => {
+    e.preventDefault();
+    if (!newFeed.content.trim()) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('chefId', user?.id || 'current-user');
+    formData.append('content', newFeed.content);
+    const typeMapping = {
+      text: 'TEXT',
+      image: 'IMAGE',
+      video: 'VIDEO',
+      recipe: 'RECIPE',
+    };
+    formData.append('type', typeMapping[newFeed.type.toLowerCase()] || 'TEXT');
+    if (newFeed.image) formData.append('image', newFeed.image);
+    if (newFeed.video) formData.append('video', newFeed.video);
+    if (newFeed.type === 'recipe') {
+      formData.append('recipeName', newFeed.recipe.name);
+      formData.append('ingredients', newFeed.recipe.ingredients);
+      formData.append('instructions', newFeed.recipe.instructions);
+      formData.append('cookingTime', newFeed.recipe.cookingTime);
+      formData.append('serves', newFeed.recipe.serves);
+      formData.append('difficulty', newFeed.recipe.difficulty || 'Medium');
+    }
+
+    try {
+      const userData = JSON.parse(localStorage.getItem('user'));
+      const token = userData.token || user?.token;
+      const response = await apiService.createFoodFeed(formData, token);
+      setFeeds((prev) => [response.data, ...prev]);
+      setNewFeed({
+        type: 'text',
+        content: '',
+        image: null,
+        video: null,
+        recipe: { name: '', ingredients: '', instructions: '', cookingTime: '', serves: '' },
+      });
+      setShowCreateFeed(false);
+    } catch (error) {
+      console.error('Error creating feed:', error);
+    }
+  };
+
+  const handleDeleteFeed = async (feedId) => {
+    if (window.confirm('Are you sure you want to delete this post?')) {
+      try {
+        const userData = JSON.parse(localStorage.getItem('user'));
+        const token = userData.token || user?.token;
+        await apiService.deleteFoodFeed(feedId, token);
+        setFeeds((prev) => prev.filter(feed => feed.id !== feedId));
+      } catch (error) {
+        console.error('Error deleting feed:', error);
+      }
+    }
+  };
+
+  const toggleFeedAvailability = async (feedId, currentStatus) => {
+    try {
+      const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+      const userData = JSON.parse(localStorage.getItem('user'));
+      const token = userData.token || user?.token;
+      await apiService.updateFoodFeedStatus(feedId, newStatus, token);
+      setFeeds((prev) => prev.map(feed => 
+        feed.id === feedId ? { ...feed, status: newStatus } : feed
+      ));
+    } catch (error) {
+      console.error('Error updating feed status:', error);
+    }
+  };
+
   const toggleAvailability = async (id) => {
     const item = foodItems.find(item => item.id === id);
     const newAvailability = !item.available;
@@ -532,7 +646,8 @@ const ChefDashboard = () => {
           {[
             { id: 'overview', label: 'Overview', icon: TrendingUp },
             { id: 'menu', label: 'Menu', icon: ChefHat },
-            { id: 'orders', label: 'Orders', icon: Package }
+            { id: 'orders', label: 'Orders', icon: Package },
+            { id: 'feeds', label: 'Feeds', icon: MessageCircle }
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -989,6 +1104,127 @@ const ChefDashboard = () => {
           </div>
         )}
 
+        {/* Feeds Tab */}
+        {activeTab === 'feeds' && (
+          <div className="space-y-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Your Food Feeds</h2>
+                <p className="text-gray-600 mt-1">Share your culinary creations and recipes with your followers!</p>
+              </div>
+              <Button onClick={() => setShowCreateFeed(true)} className="shadow-lg">
+                <Plus className="w-5 h-5 mr-2" />
+                Create New Feed
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {feeds.map((feed) => (
+                <Card key={feed.id} className="overflow-hidden group" hover>
+                  <div className="relative">
+                    {feed.type === 'IMAGE' && feed.imagePath && (
+                      <img 
+                        src={getImageUrl(feed.imagePath)} 
+                        alt={feed.content} 
+                        className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500" 
+                        onError={(e) => {
+                          e.target.src = 'https://via.placeholder.com/400x300?text=Image+Not+Found';
+                        }}
+                      />
+                    )}
+                    {feed.type === 'VIDEO' && feed.videoPath && (
+                      <video 
+                        src={getVideoUrl(feed.videoPath)} 
+                        className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500" 
+                        onError={(e) => {
+                          console.error('Video loading error:', e);
+                          e.target.style.display = 'none';
+                          const errorDiv = document.createElement('div');
+                          errorDiv.className = 'w-full h-56 bg-gray-200 flex items-center justify-center';
+                          errorDiv.innerHTML = '<p class="text-gray-500">Video not available</p>';
+                          e.target.parentNode.appendChild(errorDiv);
+                        }}
+                      />
+                    )}
+                    {feed.type === 'TEXT' && (
+                      <div className="w-full h-56 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                        <MessageCircle className="w-12 h-12 text-gray-400" />
+                      </div>
+                    )}
+                    {feed.type === 'RECIPE' && (
+                      <div className="w-full h-56 bg-gradient-to-br from-orange-100 to-yellow-200 flex items-center justify-center">
+                        <ChefHat className="w-12 h-12 text-orange-500" />
+                      </div>
+                    )}
+                    
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    
+                    <div className="absolute top-4 left-4">
+                      <Badge 
+                        variant={feed.status === 'ACTIVE' ? 'success' : 'danger'}
+                        className={`shadow-lg backdrop-blur-sm ${feed.status === 'INACTIVE' ? 'bg-red-400 text-white' : ''}`}
+                      >
+                        {feed.status || 'ACTIVE'}
+                      </Badge>
+                    </div>
+
+                    <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className="flex space-x-2">
+                        <button 
+                          onClick={() => handleDeleteFeed(feed.id)} 
+                          className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-colors shadow-lg"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </button>
+                        <button 
+                          onClick={() => toggleFeedAvailability(feed.id, feed.status)} 
+                          className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-colors shadow-lg"
+                        >
+                          <MessageCircle className="w-4 h-4 text-gray-700" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-gray-900 line-clamp-1 mb-2">{feed.content}</h3>
+                    
+                    {feed.type === 'RECIPE' && feed.recipe && (
+                      <div className="mb-4 p-3 bg-orange-50 rounded-lg">
+                        <h4 className="font-semibold text-gray-900 mb-2">{feed.recipe.name}</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                          <div><strong>Time:</strong> {feed.recipe.cookingTime}</div>
+                          <div><strong>Serves:</strong> {feed.recipe.serves}</div>
+                          <div><strong>Difficulty:</strong> {feed.recipe.difficulty}</div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center space-x-2 text-gray-500 text-sm">
+                      <Clock className="w-4 h-4" />
+                      {feed.createdAt ? new Date(feed.createdAt).toLocaleDateString() : 'Date not available'}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            {feeds.length === 0 && (
+              <Card className="p-12 text-center">
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <MessageCircle className="w-10 h-10 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">No feeds yet</h3>
+                <p className="text-gray-600 mb-6">Start sharing your culinary journey with your followers!</p>
+                <Button onClick={() => setShowCreateFeed(true)}>
+                  <Plus className="w-5 h-5 mr-2" />
+                  Create Your First Feed
+                </Button>
+              </Card>
+            )}
+          </div>
+        )}
+
         {/* Enhanced Edit Profile Modal */}
         {showEditProfile && (
           <Modal isOpen={showEditProfile} onClose={() => setShowEditProfile(false)} title="Edit Profile" size="lg">
@@ -1199,6 +1435,218 @@ const ChefDashboard = () => {
                   type="button" 
                   variant="secondary"
                   onClick={editingItem ? handleCancelEdit : handleCancelAdd}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {/* Enhanced Create Feed Modal */}
+        {showCreateFeed && (
+          <Modal 
+            isOpen={showCreateFeed} 
+            onClose={() => setShowCreateFeed(false)} 
+            title="Create New Food Feed"
+            size="lg"
+          >
+            <form onSubmit={handleCreateFeed} className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Feed Type</label>
+                <select
+                  value={newFeed.type}
+                  onChange={(e) => setNewFeed(prev => ({ ...prev, type: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                >
+                  <option value="text">Text Post</option>
+                  <option value="image">Image Post</option>
+                  <option value="video">Video Post</option>
+                  <option value="recipe">Recipe Post</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Content <span className="text-red-500">*</span></label>
+                <textarea
+                  value={newFeed.content}
+                  onChange={(e) => setNewFeed(prev => ({ ...prev, content: e.target.value }))}
+                  rows={4}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 resize-none"
+                  placeholder="Share your culinary story, tips, or recipe..."
+                  required
+                />
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-xs text-gray-500">
+                    {newFeed.content.length}/500 characters
+                  </span>
+                  {newFeed.content.length > 450 && (
+                    <span className="text-xs text-orange-500">
+                      {500 - newFeed.content.length} characters remaining
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {(newFeed.type === 'image' || newFeed.type === 'video') && (
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-gray-700">
+                    {newFeed.type === 'image' ? 'Upload Image' : 'Upload Video'} <span className="text-red-500">*</span>
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-emerald-400 transition-colors duration-200">
+                    <input 
+                      type="file" 
+                      accept={newFeed.type === 'image' ? 'image/*' : 'video/*'}
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          // Check file size (5MB for images, 50MB for videos)
+                          const maxSize = newFeed.type === 'image' ? 5 * 1024 * 1024 : 50 * 1024 * 1024;
+                          if (file.size > maxSize) {
+                            console.error(`File too large. Maximum size: ${newFeed.type === 'image' ? '5MB' : '50MB'}`);
+                            return;
+                          }
+                          setNewFeed(prev => ({ ...prev, [newFeed.type]: file }));
+                        }
+                      }}
+                      className="hidden"
+                      id={`file-upload-${newFeed.type}`}
+                    />
+                    <label htmlFor={`file-upload-${newFeed.type}`} className="cursor-pointer">
+                      {newFeed.type === 'image' ? (
+                        <Image className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      ) : (
+                        <Video className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      )}
+                      <div className="text-gray-600">
+                        <span className="font-medium text-emerald-600 hover:text-emerald-500">
+                          Click to upload
+                        </span>{' '}
+                        or drag and drop
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {newFeed.type === 'image' 
+                          ? 'PNG, JPG, GIF up to 5MB' 
+                          : 'MP4, AVI, MOV up to 50MB'
+                        }
+                      </div>
+                    </label>
+                  </div>
+                  {newFeed[newFeed.type] && (
+                    <div className="relative">
+                      {newFeed.type === 'image' ? (
+                        <img 
+                          src={URL.createObjectURL(newFeed[newFeed.type])} 
+                          alt="Preview" 
+                          className="w-full h-48 object-cover rounded-xl border-2 border-gray-200" 
+                        />
+                      ) : (
+                        <video 
+                          src={URL.createObjectURL(newFeed[newFeed.type])} 
+                          controls 
+                          className="w-full h-48 object-cover rounded-xl border-2 border-gray-200" 
+                        />
+                      )}
+                      <button
+                        onClick={() => setNewFeed(prev => ({ ...prev, [newFeed.type]: null }))}
+                        className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {newFeed.type === 'recipe' && (
+                <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
+                  <h4 className="font-semibold text-gray-900 flex items-center">
+                    <ChefHat className="w-5 h-5 mr-2 text-emerald-600" />
+                    Recipe Details
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input 
+                      label="Recipe Name" 
+                      name="recipeName" 
+                      value={newFeed.recipe.name} 
+                      onChange={(e) => setNewFeed(prev => ({ ...prev, recipe: { ...prev.recipe, name: e.target.value } }))} 
+                      required 
+                      placeholder="e.g., Classic Italian Pizza"
+                    />
+                    <Input 
+                      label="Cooking Time" 
+                      name="cookingTime" 
+                      value={newFeed.recipe.cookingTime} 
+                      onChange={(e) => setNewFeed(prev => ({ ...prev, recipe: { ...prev.recipe, cookingTime: e.target.value } }))} 
+                      required 
+                      placeholder="e.g., 30 minutes"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input 
+                      label="Serves" 
+                      name="serves" 
+                      value={newFeed.recipe.serves} 
+                      onChange={(e) => setNewFeed(prev => ({ ...prev, recipe: { ...prev.recipe, serves: e.target.value } }))} 
+                      required 
+                      placeholder="e.g., 4 people"
+                    />
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Difficulty Level</label>
+                      <select
+                        value={newFeed.recipe.difficulty || 'Medium'}
+                        onChange={(e) => setNewFeed(prev => ({ ...prev, recipe: { ...prev.recipe, difficulty: e.target.value } }))}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      >
+                        <option value="Easy">Easy</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Hard">Hard</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Ingredients <span className="text-red-500">*</span></label>
+                    <textarea
+                      value={newFeed.recipe.ingredients}
+                      onChange={(e) => setNewFeed(prev => ({ ...prev, recipe: { ...prev.recipe, ingredients: e.target.value } }))}
+                      rows={3}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+                      placeholder="List all ingredients with quantities..."
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Instructions <span className="text-red-500">*</span></label>
+                    <textarea
+                      value={newFeed.recipe.instructions}
+                      onChange={(e) => setNewFeed(prev => ({ ...prev, recipe: { ...prev.recipe, instructions: e.target.value } }))}
+                      rows={4}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+                      placeholder="Write step-by-step cooking instructions..."
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-4 pt-6">
+                <Button 
+                  type="submit" 
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                  disabled={!newFeed.content.trim() || (newFeed.type === 'recipe' && (!newFeed.recipe.name || !newFeed.recipe.ingredients || !newFeed.recipe.instructions))}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Feed
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="secondary"
+                  onClick={() => setShowCreateFeed(false)}
                   className="flex-1"
                 >
                   Cancel
