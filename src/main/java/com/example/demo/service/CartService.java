@@ -91,7 +91,8 @@ public class CartService {
         dto.setName(foodItem.getName());
         dto.setPrice(foodItem.getPrice() != null ? foodItem.getPrice() :
                      foodItem.getOriginalPrice() * (1 - (foodItem.getDiscountPercentage() != null ? foodItem.getDiscountPercentage() / 100 : 0)));
-        dto.setImageUrl(foodItem.getImagePath() != null ? "/images" + foodItem.getImagePath().replace("/images", "") : "");
+        // Use imagePath directly from the database
+        dto.setImageUrl(foodItem.getImagePath() != null ? foodItem.getImagePath() : "");
         dto.setDescription(foodItem.getDescription());
         dto.setPreparationTime(foodItem.getPreparationTime());
         dto.setTags(foodItem.getTags());
