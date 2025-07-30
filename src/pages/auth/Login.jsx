@@ -92,12 +92,12 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="mb-8">
-            <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">
+            <div className="w-24 h-24 bg-gradient-to-br from-green-100 to-emerald-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+              <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-xl">O</span>
               </div>
             </div>
@@ -152,7 +152,7 @@ const Login = () => {
             <div className="text-sm text-right">
               <Link
                 to="/forgot-password"
-                className="text-primary-600 hover:text-primary-700 transition-colors duration-200"
+                className="text-green-600 hover:text-green-700 transition-colors duration-200"
               >
                 Forgot your password?
               </Link>
@@ -171,7 +171,7 @@ const Login = () => {
                 Don't have an account?{' '}
                 <Link
                   to="/signup"
-                  className="text-primary-600 hover:text-primary-700 font-medium transition-colors duration-200"
+                  className="text-green-600 hover:text-green-700 font-medium transition-colors duration-200"
                 >
                   Sign up
                 </Link>

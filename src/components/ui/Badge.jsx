@@ -9,11 +9,13 @@ const Badge = ({
   const baseClasses = 'inline-flex items-center font-medium rounded-full';
   
   const variantClasses = {
-    primary: 'bg-primary-100 text-primary-800',
-    secondary: 'bg-secondary-100 text-secondary-800',
-    success: 'bg-green-100 text-green-800',
-    warning: 'bg-yellow-100 text-yellow-800',
-    error: 'bg-red-100 text-red-800',
+    primary: 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200',
+    secondary: 'bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-800 border border-emerald-200',
+    success: 'bg-gradient-to-r from-green-500 to-emerald-600 text-white',
+    warning: 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white',
+    error: 'bg-gradient-to-r from-red-500 to-red-600 text-white',
+    danger: 'bg-gradient-to-r from-red-500 to-red-600 text-white',
+    info: 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white',
   };
 
   const sizeClasses = {

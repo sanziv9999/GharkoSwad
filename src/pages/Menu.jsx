@@ -128,7 +128,7 @@ const Menu = () => {
                   placeholder="Search for delicious dishes..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 text-lg border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full pl-12 pr-4 py-4 text-lg border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
               <button className="flex items-center space-x-2 px-6 py-4 border border-gray-200 rounded-2xl hover:bg-gray-50 transition-colors duration-200">
@@ -145,7 +145,7 @@ const Menu = () => {
                 onClick={() => setSelectedCategory(category.id)}
                 className={`px-6 py-3 rounded-full font-medium transition-all duration-200 ${
                   selectedCategory === category.id
-                    ? 'bg-primary-500 text-white shadow-lg'
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
                     : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 hover:shadow-md'
                 }`}
               >

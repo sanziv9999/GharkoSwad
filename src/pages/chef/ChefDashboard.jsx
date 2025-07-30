@@ -526,22 +526,26 @@ const ChefDashboard = () => {
   const dashboardStats = {
     totalDishes: foodItems.length,
     totalOrders: orders.length,
-    revenue: orders.reduce((sum, order) => sum + (order.amount || 0), 0),
+    revenue: orders
+      .filter(order => order.status !== 'CANCELLED') // Exclude cancelled orders from revenue
+      .reduce((sum, order) => sum + (order.amount || 0), 0),
     avgRating: foodItems.length > 0 ? (foodItems.reduce((sum, item) => sum + item.rating, 0) / foodItems.length).toFixed(1) : '0.0'
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
       {/* Enhanced Header */}
-      <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-40">
+      <header className="bg-white backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-40 shadow-lg">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <ChefHat className="w-7 h-7 text-white" />
-              </div>
+              <img 
+                src="/logo.png" 
+                alt="GharkoSwad Logo" 
+                className="w-24 h-24 object-contain"
+              />
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold text-gray-900">
                   Chef Dashboard
                 </h1>
                 <p className="text-sm text-gray-600">Welcome back, {user?.username}</p>
@@ -569,7 +573,7 @@ const ChefDashboard = () => {
                 </div>
                 <div className="hidden md:block text-left">
                   <div className="text-sm font-semibold text-gray-900">{user?.username || 'Chef'}</div>
-                  <div className="text-xs text-emerald-600 font-medium uppercase tracking-wide">{user?.role || 'Chef'}</div>
+                  <div className="text-xs text-gray-600 font-medium uppercase tracking-wide">{user?.role || 'Chef'}</div>
                 </div>
               </button>
 
@@ -642,7 +646,7 @@ const ChefDashboard = () => {
       {/* Enhanced Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Enhanced Tab Navigation */}
-        <div className="flex flex-wrap gap-2 mb-8 p-2 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50">
+        <div className="flex flex-wrap gap-2 mb-8 p-2 bg-white/80 backdrop-blur-sm rounded-2xl border border-green-200/50 shadow-lg">
           {[
             { id: 'overview', label: 'Overview', icon: TrendingUp },
             { id: 'menu', label: 'Menu', icon: ChefHat },
@@ -669,49 +673,49 @@ const ChefDashboard = () => {
           <div className="space-y-8">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-200" hover>
+              <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-100 border-green-200 shadow-lg hover:shadow-xl transition-shadow duration-300" hover>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-blue-600 text-sm font-semibold uppercase tracking-wide">Total Dishes</p>
-                    <p className="text-3xl font-bold text-blue-900 mt-2">{dashboardStats.totalDishes}</p>
+                    <p className="text-green-600 text-sm font-semibold uppercase tracking-wide">Total Dishes</p>
+                    <p className="text-3xl font-bold text-green-900 mt-2">{dashboardStats.totalDishes}</p>
                   </div>
-                  <div className="w-14 h-14 bg-blue-500 rounded-2xl flex items-center justify-center">
+                  <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
                     <ChefHat className="w-7 h-7 text-white" />
                   </div>
                 </div>
               </Card>
 
-              <Card className="p-6 bg-gradient-to-br from-emerald-50 to-green-100 border-emerald-200" hover>
+              <Card className="p-6 bg-gradient-to-br from-emerald-50 to-teal-100 border-emerald-200 shadow-lg hover:shadow-xl transition-shadow duration-300" hover>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-emerald-600 text-sm font-semibold uppercase tracking-wide">Total Orders</p>
                     <p className="text-3xl font-bold text-emerald-900 mt-2">{dashboardStats.totalOrders}</p>
                   </div>
-                  <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex items-center justify-center">
+                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg">
                     <Package className="w-7 h-7 text-white" />
                   </div>
                 </div>
               </Card>
 
-              <Card className="p-6 bg-gradient-to-br from-yellow-50 to-orange-100 border-yellow-200" hover>
+              <Card className="p-6 bg-gradient-to-br from-teal-50 to-cyan-100 border-teal-200 shadow-lg hover:shadow-xl transition-shadow duration-300" hover>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-yellow-600 text-sm font-semibold uppercase tracking-wide">Revenue</p>
-                    <p className="text-3xl font-bold text-yellow-900 mt-2">NRs.{dashboardStats.revenue.toFixed(0)}</p>
+                    <p className="text-teal-600 text-sm font-semibold uppercase tracking-wide">Revenue</p>
+                    <p className="text-3xl font-bold text-teal-900 mt-2">NRs.{dashboardStats.revenue.toFixed(0)}</p>
                   </div>
-                  <div className="w-14 h-14 bg-yellow-500 rounded-2xl flex items-center justify-center">
+                  <div className="w-14 h-14 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
                     <DollarSign className="w-7 h-7 text-white" />
                   </div>
                 </div>
               </Card>
 
-              <Card className="p-6 bg-gradient-to-br from-purple-50 to-pink-100 border-purple-200" hover>
+              <Card className="p-6 bg-gradient-to-br from-cyan-50 to-blue-100 border-cyan-200 shadow-lg hover:shadow-xl transition-shadow duration-300" hover>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-purple-600 text-sm font-semibold uppercase tracking-wide">Avg Rating</p>
-                    <p className="text-3xl font-bold text-purple-900 mt-2">{dashboardStats.avgRating}</p>
+                    <p className="text-cyan-600 text-sm font-semibold uppercase tracking-wide">Avg Rating</p>
+                    <p className="text-3xl font-bold text-cyan-900 mt-2">{dashboardStats.avgRating}</p>
                   </div>
-                  <div className="w-14 h-14 bg-purple-500 rounded-2xl flex items-center justify-center">
+                  <div className="w-14 h-14 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
                     <Star className="w-7 h-7 text-white" />
                   </div>
                 </div>
@@ -760,6 +764,7 @@ const ChefDashboard = () => {
                           order.status === 'CONFIRMED' ? 'info' :
                           order.status === 'PREPARING' ? 'warning' :
                           order.status === 'READY' ? 'success' :
+                          order.status === 'DELIVERED' ? 'success' :
                           'danger'
                         }>
                           {order.status}
@@ -782,7 +787,7 @@ const ChefDashboard = () => {
                     <h2 className="text-2xl font-bold text-gray-900">Menu Management</h2>
                     <p className="text-gray-600 mt-1">Manage your dishes and their availability</p>
                 </div>
-                <Button onClick={() => setShowAddForm(true)} className="shadow-lg">
+                <Button onClick={() => setShowAddForm(true)} className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg transform hover:scale-105 transition-all duration-300">
                     <Plus className="w-5 h-5 mr-2" />
                     Add New Dish
                 </Button>

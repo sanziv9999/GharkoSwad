@@ -84,7 +84,7 @@ const Home = () => {
       )}
 
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-primary-50 via-white to-primary-50/30 py-24 overflow-hidden">
+      <section className="relative bg-gradient-to-br from-green-50 via-white to-emerald-50/30 py-24 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="space-y-10 animate-fade-in">
@@ -94,9 +94,9 @@ const Home = () => {
                 </Badge>
                 <h1 className="text-5xl lg:text-7xl font-bold text-gray-900 leading-tight">
                   Get Homemade<br />
-                  Food From <span className="text-primary-500 relative">
+                  Food From <span className="text-green-600 relative">
                     Home
-                    <div className="absolute -bottom-2 left-0 w-full h-3 bg-primary-200 opacity-60 rounded-full"></div>
+                    <div className="absolute -bottom-2 left-0 w-full h-3 bg-green-200 opacity-60 rounded-full"></div>
                   </span>
                 </h1>
                 <p className="text-xl text-gray-600 leading-relaxed max-w-lg">
@@ -111,9 +111,9 @@ const Home = () => {
                     Order Now
                   </Button>
                 </Link>
-                <button className="flex items-center space-x-3 px-8 py-4 text-gray-700 hover:text-primary-600 transition-all duration-300 group">
+                <button className="flex items-center space-x-3 px-8 py-4 text-gray-700 hover:text-green-600 transition-all duration-300 group">
                   <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
-                    <Play className="w-6 h-6 text-primary-500 ml-1" />
+                    <Play className="w-6 h-6 text-green-600 ml-1" />
                   </div>
                   <span className="font-semibold text-lg">Watch Video</span>
                 </button>
@@ -138,7 +138,7 @@ const Home = () => {
             </div>
             <div className="relative animate-slide-up">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-primary-400 to-secondary-400 rounded-3xl rotate-6 opacity-20"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-500 rounded-3xl rotate-6 opacity-20"></div>
                 <Card className="relative p-8 bg-gradient-to-br from-white to-gray-50">
                   <img
                     src="https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=600"
@@ -165,7 +165,7 @@ const Home = () => {
                         <div>
                           <p className="font-bold text-gray-900">{item.name}</p>
                           <div className="flex items-center space-x-2">
-                            <p className="text-primary-600 font-semibold">NRs.{item.price.toFixed(2)}</p>
+                            <p className="text-green-600 font-semibold">NRs.{item.price.toFixed(2)}</p>
                             {item.originalPrice && (
                                                               <p className="text-xs text-gray-500 line-through">NRs.{item.originalPrice.toFixed(2)}</p>
                             )}
@@ -177,7 +177,7 @@ const Home = () => {
                         </div>
                         <button
                           onClick={() => handleAddToCart(item)}
-                          className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center hover:bg-primary-600 transition-colors duration-200"
+                          className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center hover:from-green-600 hover:to-emerald-700 transition-colors duration-200"
                         >
                           <Plus className="w-4 h-4 text-white" />
                         </button>
@@ -232,7 +232,7 @@ const Home = () => {
                 name: 'Browse All', 
                 count: '255 Items', 
                 image: 'https://images.pexels.com/photos/1099680/pexels-photo-1099680.jpeg?auto=compress&cs=tinysrgb&w=200',
-                color: 'bg-primary-100 text-primary-600'
+                color: 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-600'
               },
             ].map((category, index) => (
               <Link key={index} to="/menu">
@@ -264,7 +264,7 @@ const Home = () => {
               🎉 Limited Time Offers
             </Badge>
             <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-              Special <span className="text-primary-500">Deals</span> & Combos
+                              Special <span className="text-green-600">Deals</span> & Combos
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Save big with our exclusive combo sets and limited-time discounts
@@ -344,7 +344,7 @@ const Home = () => {
                 icon: Shield,
                 title: 'Quality Guaranteed',
                 description: 'All our home chefs are verified and follow strict hygiene standards',
-                color: 'bg-primary-500'
+                color: 'bg-gradient-to-r from-green-500 to-emerald-600'
               },
               {
                 icon: Heart,
@@ -366,11 +366,11 @@ const Home = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="py-24 bg-gradient-to-br from-primary-50 to-white">
+      <section className="py-24 bg-gradient-to-br from-green-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="relative">
-              <Card className="p-8 bg-gradient-to-br from-primary-500 to-primary-600 text-white relative overflow-hidden">
+              <Card className="p-8 bg-gradient-to-br from-green-500 to-emerald-600 text-white relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mb-16"></div>
                 <div className="relative text-center">
@@ -458,7 +458,7 @@ const Home = () => {
                 icon: ShoppingBag,
                 title: 'Custom Orders',
                 description: 'Customize your meal according to your taste and dietary requirements with our flexible ordering system.',
-                color: 'bg-primary-500'
+                color: 'bg-gradient-to-r from-green-500 to-emerald-600'
               },
               {
                 icon: Gift,
@@ -490,7 +490,7 @@ const Home = () => {
             <div>
               <h2 className="text-4xl lg:text-6xl font-bold text-gray-900 mb-6">
                 Ready to Order?<br />
-                Food now from <span className="text-primary-500">Home</span>
+                Food now from <span className="text-green-600">Home</span>
               </h2>
               <p className="text-xl text-gray-600">
                 Where Each Plate Weaves a Story of Culinary<br />
@@ -518,7 +518,7 @@ const Home = () => {
                 <p className="text-sm font-semibold text-gray-700 mb-2">POPULAR CITIES IN NEPAL</p>
                 <div className="flex flex-wrap gap-2">
                   {['Kathmandu', 'Bhaktapur', 'Lalitpur', 'Pokhara'].map((city) => (
-                    <Badge key={city} variant="primary" className="cursor-pointer hover:bg-primary-200 transition-colors">
+                    <Badge key={city} variant="primary" className="cursor-pointer hover:bg-green-200 transition-colors">
                       {city}
                     </Badge>
                   ))}
@@ -530,7 +530,7 @@ const Home = () => {
       </section>
 
       {/* App Download Section */}
-      <section className="py-24 bg-gradient-to-br from-primary-50 to-secondary-50">
+      <section className="py-24 bg-gradient-to-br from-green-50 to-emerald-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="space-y-8">
@@ -540,7 +540,7 @@ const Home = () => {
                 </Badge>
                 <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
                   Homemade Foods<br />
-                  In Your <span className="text-primary-500">Pocket</span>
+                  In Your <span className="text-green-600">Pocket</span>
                 </h2>
                 <p className="text-xl text-gray-600 leading-relaxed">
                   All you need to do is download one of the best delivery apps, make an order and most companies are opting for mobile app development for food delivery
@@ -561,11 +561,11 @@ const Home = () => {
             </div>
             <div className="relative">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-primary-400 to-primary-500 rounded-full opacity-20 animate-pulse"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full opacity-20 animate-pulse"></div>
                 <img
                   src="https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=500"
                   alt="Traditional food platter"
-                  className="relative z-10 w-80 h-80 mx-auto rounded-full object-cover border-8 border-primary-500/20 shadow-2xl"
+                  className="relative z-10 w-80 h-80 mx-auto rounded-full object-cover border-8 border-green-500/20 shadow-2xl"
                 />
                 
                 {/* Floating Elements */}

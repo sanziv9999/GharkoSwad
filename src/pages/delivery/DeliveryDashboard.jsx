@@ -350,7 +350,12 @@ const DeliveryDashboard = () => {
             return order;
           })
         );
-        setReadyOrders(ordersWithCustomerData);
+        // Filter out cancelled orders and orders with cancelled payment
+        const filteredOrders = ordersWithCustomerData.filter(order => 
+          order.status !== 'CANCELLED' && 
+          order.paymentStatus !== 'CANCELLED'
+        );
+        setReadyOrders(filteredOrders);
       }
     } catch (error) {
       showBanner('error', `Failed to load ready orders: ${error.message}`);
@@ -382,7 +387,12 @@ const DeliveryDashboard = () => {
               return order;
             })
           );
-          setActiveOrders(ordersWithCustomerData);
+          // Filter out cancelled orders and orders with cancelled payment
+          const filteredOrders = ordersWithCustomerData.filter(order => 
+            order.status !== 'CANCELLED' && 
+            order.paymentStatus !== 'CANCELLED'
+          );
+          setActiveOrders(filteredOrders);
         }
       }
     } catch (error) {
@@ -415,7 +425,12 @@ const DeliveryDashboard = () => {
             return order;
           })
         );
-        setDeliveredOrders(ordersWithCustomerData);
+        // Filter out cancelled orders and orders with cancelled payment
+        const filteredOrders = ordersWithCustomerData.filter(order => 
+          order.status !== 'CANCELLED' && 
+          order.paymentStatus !== 'CANCELLED'
+        );
+        setDeliveredOrders(filteredOrders);
       }
     } catch (error) {
       showBanner('error', `Failed to load delivered orders: ${error.message}`);
@@ -613,6 +628,7 @@ const DeliveryDashboard = () => {
       case 'READY': return 'bg-gradient-to-r from-green-400 to-emerald-500 text-white';
       case 'PICKED_UP': return 'bg-gradient-to-r from-green-500 to-emerald-600 text-white';
       case 'DELIVERED': return 'bg-gradient-to-r from-green-600 to-emerald-700 text-white';
+      case 'CANCELLED': return 'bg-gradient-to-r from-red-500 to-red-600 text-white';
       default: return 'bg-gradient-to-r from-gray-500 to-gray-600 text-white';
     }
   };
@@ -731,7 +747,7 @@ const DeliveryDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-green-100 via-emerald-100 to-teal-100">
       {/* Location Tracker */}
       <LocationTracker onLocationUpdate={handleLocationUpdate} isTracking={isLocationTracking} />
       
@@ -1145,7 +1161,7 @@ const DeliveryDashboard = () => {
                         className={`px-3 py-2 shadow-lg font-semibold text-xs transition-all duration-300 ${
                           isLocationTracking 
                             ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white' 
-                            : 'bg-gradient-to-r from-gray-500 to-gray-600 text-white'
+                            : 'bg-gradient-to-r from-red-500 to-red-600 text-white'
                         }`}
                       >
                         {isLocationTracking ? 'LIVE TRACKING' : 'OFFLINE'}

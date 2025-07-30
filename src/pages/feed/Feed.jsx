@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, MessageCircle, Share2, Play, Pause, Volume2, VolumeX, MoreHorizontal, Plus, Camera, Video, Image, Send, Bookmark, ChefHat, Clock, Users } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Play, Pause, Volume2, VolumeX, MoreHorizontal, Send, Bookmark, ChefHat, Clock, Users } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
@@ -203,20 +203,7 @@ const SimpleVideoPlayer = ({ post, playingVideos, mutedVideos, toggleVideo, togg
 const Feed = () => {
   const { user, isAuthenticated, token } = useAuth();
   const [banner, setBanner] = useState({ show: false, type: '', message: '' });
-  const [showCreatePost, setShowCreatePost] = useState(false);
-  const [newPost, setNewPost] = useState({
-    type: 'TEXT',
-    content: '',
-    image: null,
-    video: null,
-    recipe: {
-      name: '',
-      ingredients: '',
-      instructions: '',
-      cookingTime: '',
-      serves: '',
-    },
-  });
+
   const [posts, setPosts] = useState([]);
   const [playingVideos, setPlayingVideos] = useState({});
   const [mutedVideos, setMutedVideos] = useState({});
@@ -273,64 +260,7 @@ const Feed = () => {
     if (isAuthenticated) fetchPosts();
   }, [isAuthenticated, token, user?.id]);
 
-  const handleCreatePost = async () => {
-    try {
-      const userData = JSON.parse(localStorage.getItem('user') || '{}');
-      const userId = userData.id;
-      const token = localStorage.getItem('token') || user?.token;
 
-      console.log('Create post - User data:', userData);
-      console.log('Create post - User ID:', userId);
-      console.log('Create post - Token:', token ? 'Present' : 'Missing');
-
-      if (!userId) {
-        showBanner('error', 'Please login to create posts');
-        return;
-      }
-
-      if (!token) {
-        showBanner('error', 'Authentication required');
-        return;
-      }
-
-      if (!newPost.content.trim()) {
-        showBanner('error', 'Please add some content to your post');
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('chefId', userId);
-      formData.append('content', newPost.content);
-      formData.append('type', newPost.type);
-      if (newPost.image) formData.append('image', newPost.image);
-      if (newPost.video) formData.append('video', newPost.video);
-
-      if (newPost.type === 'RECIPE' && newPost.recipe) {
-        formData.append('recipe', JSON.stringify(newPost.recipe));
-      }
-
-      const response = await apiService.createFoodFeed(formData, token);
-      setPosts((prev) => [{ ...response.data, isLiked: false, isBookmarked: false, chef: { username: userData.username || 'Unknown Chef' } }, ...prev]);
-      setNewPost({
-        type: 'TEXT',
-        content: '',
-        image: null,
-        video: null,
-        recipe: {
-          name: '',
-          cookingTime: '',
-          serves: '',
-          difficulty: 'Easy',
-          ingredients: '',
-          instructions: '',
-        },
-      });
-      setShowCreatePost(false);
-      showBanner('success', 'Post created successfully!');
-    } catch (error) {
-      showBanner('error', error.message || 'Failed to create post');
-    }
-  };
 
   const handleLike = async (postId) => {
     try {
@@ -470,214 +400,12 @@ const Feed = () => {
               <h1 className="text-2xl font-bold text-gray-900">Chef Feed 👨‍🍳</h1>
               <p className="text-gray-600">Discover recipes and cooking tips from home chefs</p>
             </div>
-            {isAuthenticated && (
-              <Button onClick={() => setShowCreatePost(true)} className="flex items-center space-x-2">
-                <Plus className="w-5 h-5" />
-                <span>Share Recipe</span>
-              </Button>
-            )}
+
           </div>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {showCreatePost && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-gray-900">Share Your Recipe</h2>
-                  <button
-                    onClick={() => setShowCreatePost(false)}
-                    className="p-2 hover:bg-gray-100 rounded-full"
-                  >
-                    <MoreHorizontal className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="flex space-x-2 mb-4">
-                  {[
-                    { type: 'TEXT', label: 'Text', icon: MessageCircle },
-                    { type: 'IMAGE', label: 'Photo', icon: Image },
-                    { type: 'VIDEO', label: 'Video', icon: Video },
-                    { type: 'RECIPE', label: 'Recipe', icon: ChefHat },
-                  ].map(({ type, label, icon: Icon }) => (
-                    <button
-                      key={type}
-                      onClick={() => setNewPost((prev) => ({ ...prev, type }))}
-                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors ${
-                        newPost.type === type
-                          ? 'bg-primary-50 border-primary-500 text-primary-600'
-                          : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span>{label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                <textarea
-                  value={newPost.content}
-                  onChange={(e) => setNewPost((prev) => ({ ...prev, content: e.target.value }))}
-                  placeholder="Share your cooking story, tips, or recipe..."
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4"
-                />
-
-                {(newPost.type === 'IMAGE' || newPost.type === 'VIDEO') && (
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {newPost.type === 'IMAGE' ? 'Upload Image' : 'Upload Video'}
-                    </label>
-                    <input
-                      type="file"
-                      accept={newPost.type === 'IMAGE' ? 'image/*' : 'video/mp4,video/webm'}
-                      onChange={(e) =>
-                        setNewPost((prev) => ({
-                          ...prev,
-                          [newPost.type.toLowerCase()]: e.target.files[0],
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-                )}
-
-                {newPost.type === 'RECIPE' && (
-                  <div className="space-y-4 mb-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <input
-                        type="text"
-                        value={newPost.recipe.name}
-                        onChange={(e) =>
-                          setNewPost((prev) => ({
-                            ...prev,
-                            recipe: { ...prev.recipe, name: e.target.value },
-                          }))
-                        }
-                        placeholder="Recipe name"
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      />
-                      <input
-                        type="text"
-                        value={newPost.recipe.cookingTime}
-                        onChange={(e) =>
-                          setNewPost((prev) => ({
-                            ...prev,
-                            recipe: { ...prev.recipe, cookingTime: e.target.value },
-                          }))
-                        }
-                        placeholder="Cooking time"
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      value={newPost.recipe.serves}
-                      onChange={(e) =>
-                        setNewPost((prev) => ({
-                          ...prev,
-                          recipe: { ...prev.recipe, serves: e.target.value },
-                        }))
-                      }
-                      placeholder="Serves how many people"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                    
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Recipe Image (Optional)
-                      </label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary-400 transition-colors duration-200">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              const maxSize = 5 * 1024 * 1024;
-                              if (file.size > maxSize) {
-                                showBanner('error', 'File too large. Maximum size: 5MB');
-                                return;
-                              }
-                              setNewPost((prev) => ({
-                                ...prev,
-                                image: file,
-                              }));
-                            }
-                          }}
-                          className="hidden"
-                          id="recipe-image-upload"
-                        />
-                        <label htmlFor="recipe-image-upload" className="cursor-pointer">
-                          <Image className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                          <div className="text-gray-600">
-                            <span className="font-medium text-primary-600 hover:text-primary-500">
-                              Click to upload recipe image
-                            </span>
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            PNG, JPG, GIF up to 5MB
-                          </div>
-                        </label>
-                      </div>
-                      {newPost.image && (
-                        <div className="relative">
-                          <img 
-                            src={URL.createObjectURL(newPost.image)} 
-                            alt="Recipe preview" 
-                            className="w-full h-32 object-cover rounded-lg border-2 border-gray-200" 
-                          />
-                          <button
-                            onClick={() => setNewPost((prev) => ({ ...prev, image: null }))}
-                            className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors text-xs"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <textarea
-                      value={newPost.recipe.ingredients}
-                      onChange={(e) =>
-                        setNewPost((prev) => ({
-                          ...prev,
-                          recipe: { ...prev.recipe, ingredients: e.target.value },
-                        }))
-                      }
-                      placeholder="List ingredients..."
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                    <textarea
-                      value={newPost.recipe.instructions}
-                      onChange={(e) =>
-                        setNewPost((prev) => ({
-                          ...prev,
-                          recipe: { ...prev.recipe, instructions: e.target.value },
-                        }))
-                      }
-                      placeholder="Step-by-step instructions..."
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-                )}
-
-                <div className="flex space-x-3">
-                  <Button onClick={handleCreatePost} className="flex-1">
-                    Share Post
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowCreatePost(false)} className="flex-1">
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
 
         <div className="space-y-8">
           {posts.map((post) => (

@@ -117,12 +117,12 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="mb-8">
-            <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">
+            <div className="w-24 h-24 bg-gradient-to-br from-green-100 to-emerald-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+              <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-xl">O</span>
               </div>
             </div>
@@ -253,7 +253,7 @@ const Signup = () => {
                     name="role"
                     value={formData.role}
                     onChange={handleChange}
-                    className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 sm:text-sm"
                     required
                   >
                     <option value="USER">User</option>
@@ -269,12 +269,12 @@ const Signup = () => {
               <input
                 id="terms"
                 type="checkbox"
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                 required
               />
               <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
                 I agree to the{' '}
-                <Link to="/" className="text-primary-600 hover:text-primary-700 transition-colors duration-200">
+                <Link to="/" className="text-green-600 hover:text-green-700 transition-colors duration-200">
                   Terms and Conditions
                 </Link>
               </label>
@@ -293,7 +293,7 @@ const Signup = () => {
                 Already have an account?{' '}
                 <Link
                   to="/login"
-                  className="text-primary-600 hover:text-primary-700 font-medium transition-colors duration-200"
+                  className="text-green-600 hover:text-green-700 font-medium transition-colors duration-200"
                 >
                   Sign in
                 </Link>
