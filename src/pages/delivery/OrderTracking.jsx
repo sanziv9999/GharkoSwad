@@ -554,9 +554,12 @@ const OrderTracking = () => {
           
           if (foundOrder) {
             console.log('Found order:', foundOrder);
-            setOrder(foundOrder);
-            initializeDriverLocation(foundOrder);
-            setCurrentStep(getCurrentStepIndex(foundOrder.status));
+            
+            // Fetch additional coordinate data
+            const enrichedOrder = await fetchOrderCoordinates(foundOrder);
+            setOrder(enrichedOrder);
+            initializeDriverLocation(enrichedOrder);
+            setCurrentStep(getCurrentStepIndex(enrichedOrder.status));
           } else {
             console.log('Order not found in available orders');
             console.log('Available orderIds:', response.data.map(o => o.orderId));
@@ -569,9 +572,10 @@ const OrderTracking = () => {
               
               if (directResponse.data) {
                 console.log('Found order via direct method:', directResponse.data);
-                setOrder(directResponse.data);
-                initializeDriverLocation(directResponse.data);
-                setCurrentStep(getCurrentStepIndex(directResponse.data.status));
+                const enrichedOrder = await fetchOrderCoordinates(directResponse.data);
+                setOrder(enrichedOrder);
+                initializeDriverLocation(enrichedOrder);
+                setCurrentStep(getCurrentStepIndex(enrichedOrder.status));
               } else {
                 setError(`Order with ID ${orderId} not found`);
               }
@@ -592,6 +596,54 @@ const OrderTracking = () => {
       }
     };
 
+    // Helper function to fetch coordinate data
+    const fetchOrderCoordinates = async (orderData) => {
+      try {
+        // Fetch delivery coordinates if delivery person is assigned
+        if (orderData.deliveryPersonId || orderData.deliveryId || orderData.assignedDeliveryId) {
+          const deliveryPersonId = orderData.deliveryPersonId || orderData.deliveryId || orderData.assignedDeliveryId;
+          console.log('Fetching delivery coordinates for delivery person:', deliveryPersonId);
+          
+          try {
+            const deliveryResponse = await apiService.getDeliveryLocation(deliveryPersonId);
+            console.log('Delivery coordinates response:', deliveryResponse);
+            
+            if (deliveryResponse && deliveryResponse.data) {
+              orderData.deliveryCoordinate = deliveryResponse.data;
+              console.log('Added delivery coordinates to order:', orderData.deliveryCoordinate);
+            }
+          } catch (deliveryErr) {
+            console.warn('Failed to fetch delivery coordinates:', deliveryErr);
+          }
+        }
+        
+        // Fetch user coordinates if user has coordinates
+        if (user?.coordinate) {
+          console.log('User has coordinates:', user.coordinate);
+          orderData.userCoordinate = user.coordinate;
+        } else {
+          // Try to fetch user profile to get coordinates
+          try {
+            console.log('Fetching user profile for coordinates');
+            const userProfile = await apiService.getUserProfile(user.id);
+            console.log('User profile response:', userProfile);
+            
+            if (userProfile && userProfile.coordinate) {
+              orderData.userCoordinate = userProfile.coordinate;
+              console.log('Added user coordinates to order:', orderData.userCoordinate);
+            }
+          } catch (userErr) {
+            console.warn('Failed to fetch user coordinates:', userErr);
+          }
+        }
+        
+        return orderData;
+      } catch (err) {
+        console.error('Error fetching coordinate data:', err);
+        return orderData; // Return original order data if coordinate fetching fails
+      }
+    };
+
     fetchOrderDetails();
   }, [orderId, user?.id]);
 
@@ -600,15 +652,24 @@ const OrderTracking = () => {
     try {
       console.log('Initializing driver location for order:', orderData);
       console.log('Raw deliveryCoordinates:', orderData.deliveryCoordinates);
+      console.log('Delivery coordinate from API:', orderData.deliveryCoordinate);
+      console.log('User coordinate from API:', orderData.userCoordinate);
       
-      if (!orderData.deliveryCoordinates) {
-        console.error('No deliveryCoordinates found in order data');
+      // Use delivery coordinates from API if available, otherwise fall back to deliveryCoordinates
+      let deliveryCoords;
+      if (orderData.deliveryCoordinate && orderData.deliveryCoordinate.latitude && orderData.deliveryCoordinate.longitude) {
+        // Use real-time delivery coordinates from API
+        deliveryCoords = [orderData.deliveryCoordinate.latitude, orderData.deliveryCoordinate.longitude];
+        console.log('Using real-time delivery coordinates:', deliveryCoords);
+      } else if (orderData.deliveryCoordinates) {
+        // Fall back to stored delivery coordinates
+        deliveryCoords = JSON.parse(orderData.deliveryCoordinates);
+        console.log('Using stored delivery coordinates:', deliveryCoords);
+      } else {
+        console.error('No delivery coordinates found in order data');
         setDriverLocation([27.7172, 85.3240]); // Default location
         return;
       }
-      
-      const deliveryCoords = JSON.parse(orderData.deliveryCoordinates);
-      console.log('Parsed delivery coordinates:', deliveryCoords);
       
       let initialLocation;
       let initialETA;
@@ -682,9 +743,18 @@ const OrderTracking = () => {
                   if (!prev || Math.abs(prev[0] - newLocation[0]) > 0.0001 || Math.abs(prev[1] - newLocation[1]) > 0.0001) {
                     console.log('Updated driver location from real GPS:', newLocation);
                     
-                    // Calculate real distance and ETA
+                    // Calculate real distance and ETA using delivery coordinates
                     try {
-                      const deliveryCoords = JSON.parse(order.deliveryCoordinates);
+                      let deliveryCoords;
+                      if (order.deliveryCoordinate && order.deliveryCoordinate.latitude && order.deliveryCoordinate.longitude) {
+                        deliveryCoords = [order.deliveryCoordinate.latitude, order.deliveryCoordinate.longitude];
+                      } else if (order.deliveryCoordinates) {
+                        deliveryCoords = JSON.parse(order.deliveryCoordinates);
+                      } else {
+                        console.warn('No delivery coordinates available for distance calculation');
+                        return newLocation;
+                      }
+                      
                       const distance = calculateDistance(newLocation, deliveryCoords);
                       const eta = Math.max(5, Math.round(distance * 3)); // Rough ETA calculation
                       setEstimatedTime(`${eta} min`);
@@ -733,7 +803,17 @@ const OrderTracking = () => {
         if (!prev) return prev;
         
         try {
-          const deliveryCoords = JSON.parse(order.deliveryCoordinates);
+          // Use delivery coordinates from API if available, otherwise fall back to stored coordinates
+          let deliveryCoords;
+          if (order.deliveryCoordinate && order.deliveryCoordinate.latitude && order.deliveryCoordinate.longitude) {
+            deliveryCoords = [order.deliveryCoordinate.latitude, order.deliveryCoordinate.longitude];
+          } else if (order.deliveryCoordinates) {
+            deliveryCoords = JSON.parse(order.deliveryCoordinates);
+          } else {
+            console.error('No delivery coordinates available for simulation');
+            return prev;
+          }
+          
           const currentLat = prev[0];
           const currentLng = prev[1];
           const targetLat = deliveryCoords[0];
@@ -1083,13 +1163,19 @@ const OrderTracking = () => {
 
   // Parse delivery coordinates safely
   const deliveryCoords = useMemo(() => {
-    if (!order?.deliveryCoordinates) return [27.7172, 85.3240]; // Default location
-    try {
-      return JSON.parse(order.deliveryCoordinates);
-    } catch {
-      return [27.7172, 85.3240];
+    // Use delivery coordinates from API if available, otherwise fall back to stored coordinates
+    if (order?.deliveryCoordinate && order.deliveryCoordinate.latitude && order.deliveryCoordinate.longitude) {
+      return [order.deliveryCoordinate.latitude, order.deliveryCoordinate.longitude];
+    } else if (order?.deliveryCoordinates) {
+      try {
+        return JSON.parse(order.deliveryCoordinates);
+      } catch {
+        return [27.7172, 85.3240];
+      }
+    } else {
+      return [27.7172, 85.3240]; // Default location
     }
-  }, [order?.deliveryCoordinates]);
+  }, [order?.deliveryCoordinate, order?.deliveryCoordinates]);
 
   // Memoized routing control to prevent infinite loops
   const memoizedRoutingControl = useMemo(() => {
@@ -1465,6 +1551,34 @@ const OrderTracking = () => {
                     {order.paymentStatus}
                   </Badge>
                 </div>
+                
+                {/* Coordinate Information - Debug Section */}
+                {(order.deliveryCoordinate || order.userCoordinate) && (
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 className="text-sm font-semibold text-blue-900 mb-2">Coordinate Data</h3>
+                    {order.deliveryCoordinate && (
+                      <div className="mb-2">
+                        <p className="text-xs text-blue-700 font-medium">Delivery Coordinates (API):</p>
+                        <p className="text-xs text-blue-600">
+                          Lat: {order.deliveryCoordinate.latitude?.toFixed(6)}, 
+                          Lng: {order.deliveryCoordinate.longitude?.toFixed(6)}
+                        </p>
+                      </div>
+                    )}
+                    {order.userCoordinate && (
+                      <div className="mb-2">
+                        <p className="text-xs text-blue-700 font-medium">User Coordinates:</p>
+                        <p className="text-xs text-blue-600">{order.userCoordinate}</p>
+                      </div>
+                    )}
+                    {order.deliveryCoordinates && (
+                      <div>
+                        <p className="text-xs text-blue-700 font-medium">Stored Delivery Coordinates:</p>
+                        <p className="text-xs text-blue-600">{order.deliveryCoordinates}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </Card>
 

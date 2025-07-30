@@ -56,6 +56,7 @@ const ChefDashboard = () => {
       instructions: '',
       cookingTime: '',
       serves: '',
+      image: null,
     },
   });
 
@@ -442,6 +443,22 @@ const ChefDashboard = () => {
       return;
     }
 
+    // Validate recipe data lengths before sending
+    if (newFeed.type === 'recipe') {
+      if (newFeed.recipe.instructions.length > 1000) {
+        alert('Instructions are too long. Please keep them under 1000 characters.');
+        return;
+      }
+      if (newFeed.recipe.ingredients.length > 500) {
+        alert('Ingredients are too long. Please keep them under 500 characters.');
+        return;
+      }
+      if (newFeed.recipe.name.length > 100) {
+        alert('Recipe name is too long. Please keep it under 100 characters.');
+        return;
+      }
+    }
+
     const formData = new FormData();
     formData.append('chefId', user?.id || 'current-user');
     formData.append('content', newFeed.content);
@@ -461,6 +478,7 @@ const ChefDashboard = () => {
       formData.append('cookingTime', newFeed.recipe.cookingTime);
       formData.append('serves', newFeed.recipe.serves);
       formData.append('difficulty', newFeed.recipe.difficulty || 'Medium');
+      if (newFeed.recipe.image) formData.append('image', newFeed.recipe.image);
     }
 
     try {
@@ -473,7 +491,7 @@ const ChefDashboard = () => {
         content: '',
         image: null,
         video: null,
-        recipe: { name: '', ingredients: '', instructions: '', cookingTime: '', serves: '' },
+        recipe: { name: '', ingredients: '', instructions: '', cookingTime: '', serves: '', image: null },
       });
       setShowCreateFeed(false);
     } catch (error) {
@@ -1157,9 +1175,20 @@ const ChefDashboard = () => {
                       </div>
                     )}
                     {feed.type === 'RECIPE' && (
-                      <div className="w-full h-56 bg-gradient-to-br from-orange-100 to-yellow-200 flex items-center justify-center">
-                        <ChefHat className="w-12 h-12 text-orange-500" />
-                      </div>
+                      feed.recipe && feed.recipe.imagePath ? (
+                        <img 
+                          src={getImageUrl(feed.recipe.imagePath)} 
+                          alt={feed.recipe.name || feed.content} 
+                          className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500" 
+                          onError={(e) => {
+                            e.target.src = 'https://via.placeholder.com/400x300?text=Recipe+Image';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-56 bg-gradient-to-br from-orange-100 to-yellow-200 flex items-center justify-center">
+                          <ChefHat className="w-12 h-12 text-orange-500" />
+                        </div>
+                      )
                     )}
                     
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -1577,6 +1606,7 @@ const ChefDashboard = () => {
                       name="recipeName" 
                       value={newFeed.recipe.name} 
                       onChange={(e) => setNewFeed(prev => ({ ...prev, recipe: { ...prev.recipe, name: e.target.value } }))} 
+                      maxLength={100}
                       required 
                       placeholder="e.g., Classic Italian Pizza"
                     />
@@ -1619,10 +1649,21 @@ const ChefDashboard = () => {
                       value={newFeed.recipe.ingredients}
                       onChange={(e) => setNewFeed(prev => ({ ...prev, recipe: { ...prev.recipe, ingredients: e.target.value } }))}
                       rows={3}
+                      maxLength={500}
                       className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
                       placeholder="List all ingredients with quantities..."
                       required
                     />
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-xs text-gray-500">
+                        {newFeed.recipe.ingredients.length}/500 characters
+                      </span>
+                      {newFeed.recipe.ingredients.length > 450 && (
+                        <span className="text-xs text-orange-500">
+                          {500 - newFeed.recipe.ingredients.length} characters remaining
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -1631,10 +1672,80 @@ const ChefDashboard = () => {
                       value={newFeed.recipe.instructions}
                       onChange={(e) => setNewFeed(prev => ({ ...prev, recipe: { ...prev.recipe, instructions: e.target.value } }))}
                       rows={4}
+                      maxLength={1000}
                       className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
                       placeholder="Write step-by-step cooking instructions..."
                       required
                     />
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-xs text-gray-500">
+                        {newFeed.recipe.instructions.length}/1000 characters
+                      </span>
+                      {newFeed.recipe.instructions.length > 900 && (
+                        <span className="text-xs text-orange-500">
+                          {1000 - newFeed.recipe.instructions.length} characters remaining
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Recipe Image</label>
+                    <div className="space-y-3">
+                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-emerald-400 transition-colors duration-200">
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              // Check file size (5MB for images)
+                              const maxSize = 5 * 1024 * 1024;
+                              if (file.size > maxSize) {
+                                console.error('File too large. Maximum size: 5MB');
+                                return;
+                              }
+                              setNewFeed(prev => ({ 
+                                ...prev, 
+                                recipe: { ...prev.recipe, image: file } 
+                              }));
+                            }
+                          }}
+                          className="hidden"
+                          id="recipe-image-upload"
+                        />
+                        <label htmlFor="recipe-image-upload" className="cursor-pointer">
+                          <Image className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                          <div className="text-gray-600">
+                            <span className="font-medium text-emerald-600 hover:text-emerald-500">
+                              Click to upload recipe image
+                            </span>{' '}
+                            or drag and drop
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            PNG, JPG, GIF up to 5MB
+                          </div>
+                        </label>
+                      </div>
+                      {newFeed.recipe.image && (
+                        <div className="relative">
+                          <img 
+                            src={URL.createObjectURL(newFeed.recipe.image)} 
+                            alt="Recipe Preview" 
+                            className="w-full h-48 object-cover rounded-xl border-2 border-gray-200" 
+                          />
+                          <button
+                            onClick={() => setNewFeed(prev => ({ 
+                              ...prev, 
+                              recipe: { ...prev.recipe, image: null } 
+                            }))}
+                            className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

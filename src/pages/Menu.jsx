@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Star, Plus, Heart, Clock, Users } from 'lucide-react';
+import { Search, Filter, Star, Plus, Heart, Clock, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -8,6 +8,74 @@ import imagePathService from '../services/imageLocation/imagePath';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext'; // Verify this path
+
+// Description component with read more functionality
+const DescriptionWithReadMore = ({ description }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const [textRef, setTextRef] = useState(null);
+
+  useEffect(() => {
+    if (textRef) {
+      // Create a temporary element to measure the full text height
+      const tempElement = document.createElement('p');
+      tempElement.style.cssText = `
+        position: absolute;
+        visibility: hidden;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-size: ${window.getComputedStyle(textRef).fontSize};
+        line-height: ${window.getComputedStyle(textRef).lineHeight};
+        font-family: ${window.getComputedStyle(textRef).fontFamily};
+        width: ${textRef.offsetWidth}px;
+        padding: 0;
+        margin: 0;
+      `;
+      tempElement.textContent = description;
+      document.body.appendChild(tempElement);
+      
+      const fullHeight = tempElement.offsetHeight;
+      const lineHeight = parseInt(window.getComputedStyle(textRef).lineHeight);
+      const maxHeight = lineHeight * 3; // 3 lines
+      
+      setIsTruncated(fullHeight > maxHeight);
+      document.body.removeChild(tempElement);
+    }
+  }, [description, textRef]);
+
+  if (!description) return null;
+
+  return (
+    <div className="mb-4">
+      <p 
+        ref={setTextRef}
+        className={`text-gray-600 leading-relaxed transition-all duration-300 ${
+          !isExpanded && isTruncated ? 'line-clamp-3' : ''
+        }`}
+      >
+        {description}
+      </p>
+      {isTruncated && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center space-x-1 mt-2 transition-colors duration-200"
+        >
+          {isExpanded ? (
+            <>
+              <span>Read less</span>
+              <ChevronUp className="w-4 h-4" />
+            </>
+          ) : (
+            <>
+              <span>Read more</span>
+              <ChevronDown className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+};
 
 const Menu = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -158,7 +226,7 @@ const Menu = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredItems.map((item) => (
-            <Card key={item.id} className="overflow-hidden group" hover>
+            <Card key={item.id} className="overflow-hidden group h-full flex flex-col" hover>
               <div className="relative">
                 <img
                   src={imagePathService.getImageUrl(item.imagePath || item.image)}
@@ -182,7 +250,7 @@ const Menu = () => {
                 </button>
               </div>
               
-              <div className="p-6">
+              <div className="p-6 flex-1 flex flex-col">
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 mb-1">{item.name}</h3>
@@ -194,9 +262,9 @@ const Menu = () => {
                   </div>
                 </div>
                 
-                <p className="text-gray-600 mb-4 leading-relaxed">{item.description}</p>
+                <DescriptionWithReadMore description={item.description} />
                 
-                <div className="flex flex-wrap gap-2 mb-4">
+                <div className="flex flex-wrap gap-2 mb-4 mt-auto">
                   {item.tags.map((tag, index) => (
                     <Badge key={index} variant="primary" size="sm">
                       {tag}
@@ -215,7 +283,7 @@ const Menu = () => {
                   </div>
                 </div>
                 
-                <div className="space-y-3">
+                <div className="space-y-3 mt-auto">
                   <div>
                     <div className="flex items-center space-x-2">
                       <span className="text-xl font-bold text-gray-900">NRs.{item.price.toFixed(2)}</span>
