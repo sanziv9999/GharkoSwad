@@ -1,55 +1,60 @@
 package com.example.demo.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.UUID;
 
 @Service
 public class FileStorageService {
 
     private static final Logger logger = LoggerFactory.getLogger(FileStorageService.class);
-
-    private final String uploadDir = "uploads/images/";
-
-    public FileStorageService() {
-        try {
-            Files.createDirectories(Paths.get(uploadDir));
-            logger.info("Upload directory created or verified: {}", uploadDir);
-        } catch (IOException e) {
-            logger.error("Could not create upload directory: {}", e.getMessage(), e);
-            throw new RuntimeException("Could not create upload directory", e);
-        }
-    }
+    private static final String UPLOAD_DIR = "uploads/";
+    private static final String IMAGES_DIR = "images/";
+    private static final String VIDEOS_DIR = "videos/";
+    private static final String[] ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/jpg"};
+    private static final String[] ALLOWED_VIDEO_TYPES = {"video/mp4", "video/webm"};
 
     public String storeFile(MultipartFile file) throws IOException {
-        if (file == null || file.isEmpty()) {
-            logger.warn("Attempted to store a null or empty file: {}", file == null ? "null" : file.getOriginalFilename());
-            throw new IllegalArgumentException("File is null or empty");
+        if (file.isEmpty()) {
+            logger.warn("Empty file provided for upload");
+            return null;
         }
 
         String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            logger.warn("Invalid file type detected: {}", contentType);
-            throw new IllegalArgumentException("Only image files are allowed. Detected: " + contentType);
+        if (contentType == null) {
+            logger.warn("Unknown file type: No content type detected");
+            throw new IllegalArgumentException("Unknown file type");
         }
 
-        String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-        Path filePath = Paths.get(uploadDir + fileName);
-
-        try {
-            Files.write(filePath, file.getBytes());
-            logger.info("File successfully saved to: {}", filePath);
-            return "/images/" + fileName;
-        } catch (IOException e) {
-            logger.error("Failed to save file {} to {}: {}", file.getOriginalFilename(), filePath, e.getMessage(), e);
-            throw e; // Re-throw to be caught by the controller
+        String directory;
+        if (Arrays.asList(ALLOWED_IMAGE_TYPES).contains(contentType)) {
+            directory = IMAGES_DIR;
+        } else if (Arrays.asList(ALLOWED_VIDEO_TYPES).contains(contentType)) {
+            directory = VIDEOS_DIR;
+        } else {
+            logger.warn("Invalid file type: {}. Only images ({}) or videos ({}) are allowed",
+                    contentType, String.join(", ", ALLOWED_IMAGE_TYPES), String.join(", ", ALLOWED_VIDEO_TYPES));
+            throw new IllegalArgumentException("Invalid file type. Only images (jpeg, png, jpg) or videos (mp4, webm) are allowed");
         }
+
+        String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+        Path uploadPath = Paths.get(UPLOAD_DIR + directory).toAbsolutePath().normalize();
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+        }
+
+        Path filePath = uploadPath.resolve(fileName);
+        Files.copy(file.getInputStream(), filePath);
+
+        logger.info("File successfully saved with path: {}{}", directory, fileName);
+        return directory + fileName;
     }
 }

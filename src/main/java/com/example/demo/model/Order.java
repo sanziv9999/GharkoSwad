@@ -1,44 +1,49 @@
 package com.example.demo.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
-@Table(name = "food_order")
+@Table(name = "orders")
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne
-    @JoinColumn(name = "food_item_id", nullable = false)
-    private FoodItem foodItem;
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private List<OrderItem> orderItems;
 
-    private LocalDateTime orderDate;
+    private String status = "PLACED";
+    private LocalDateTime orderDate = LocalDateTime.now();
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
-    private OrderStatus status;
+    @Column(name = "delivery_location")
+    private String deliveryLocation;
 
-    @Column(nullable = false)
-    private Integer quantity;
+    @Column(name = "delivery_phone")
+    private String deliveryPhone;
 
-    @OneToOne(mappedBy = "order")
-    private Payment payment; // Bidirectional relationship with Payment
+    @Column(name = "delivery_coordinates")
+    private String deliveryCoordinates;
+
+    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
+    private Payment payment;
 
     // Constructors
     public Order() {}
 
-    public Order(User user, FoodItem foodItem, Integer quantity) {
+    public Order(User user, List<OrderItem> orderItems, String deliveryLocation, String deliveryPhone, String deliveryCoordinates) {
         this.user = user;
-        this.foodItem = foodItem;
-        this.orderDate = LocalDateTime.now();
-        this.status = OrderStatus.PLACED;
-        this.quantity = quantity;
+        this.orderItems = orderItems;
+        this.deliveryLocation = deliveryLocation;
+        this.deliveryPhone = deliveryPhone;
+        this.deliveryCoordinates = deliveryCoordinates;
     }
 
     // Getters and Setters
@@ -46,20 +51,18 @@ public class Order {
     public void setId(Long id) { this.id = id; }
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }
-    public FoodItem getFoodItem() { return foodItem; }
-    public void setFoodItem(FoodItem foodItem) { this.foodItem = foodItem; }
+    public List<OrderItem> getOrderItems() { return orderItems; }
+    public void setOrderItems(List<OrderItem> orderItems) { this.orderItems = orderItems; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
     public LocalDateTime getOrderDate() { return orderDate; }
     public void setOrderDate(LocalDateTime orderDate) { this.orderDate = orderDate; }
-    public OrderStatus getStatus() { return status; }
-    public void setStatus(OrderStatus status) { this.status = status; }
-    public Integer getQuantity() { return quantity; }
-    public void setQuantity(Integer quantity) { this.quantity = quantity; }
+    public String getDeliveryLocation() { return deliveryLocation; }
+    public void setDeliveryLocation(String deliveryLocation) { this.deliveryLocation = deliveryLocation; }
+    public String getDeliveryPhone() { return deliveryPhone; }
+    public void setDeliveryPhone(String deliveryPhone) { this.deliveryPhone = deliveryPhone; }
+    public String getDeliveryCoordinates() { return deliveryCoordinates; }
+    public void setDeliveryCoordinates(String deliveryCoordinates) { this.deliveryCoordinates = deliveryCoordinates; }
     public Payment getPayment() { return payment; }
     public void setPayment(Payment payment) { this.payment = payment; }
-
-    @Override
-    public String toString() {
-        return "Order{id=" + id + ", user=" + user.getId() + ", foodItem=" + foodItem.getId() +
-                ", status=" + status + ", quantity=" + quantity + ", payment=" + (payment != null ? payment.getId() : null) + "}";
-    }
 }

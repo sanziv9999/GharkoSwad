@@ -2,6 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.dto.FoodItemDto;
 import com.example.demo.model.FoodItem;
+import com.example.demo.model.User;
 import com.example.demo.repository.FoodItemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -16,24 +17,25 @@ public class FoodItemService {
     @Autowired
     private FoodItemRepository foodItemRepository;
 
-  
     public List<FoodItem> getAvailableFoods(String name, Double minPrice, Double maxPrice) {
         return foodItemRepository.findByAvailabilityAndFilters(true, name, minPrice, maxPrice, null, null);
     }
 
-   
     public List<FoodItem> getAllFoods() {
         return foodItemRepository.findAll();
     }
 
-   
-    public List<FoodItem> searchFoods(Boolean available, String startsWith, Double minPrice, Double maxPrice,
+    public List<FoodItem> searchFoods(Boolean available, String name, Double minPrice, Double maxPrice,
                                      Set<String> tags, String preparationTime) {
-        return foodItemRepository.findByAvailabilityAndFilters(available, startsWith, minPrice, maxPrice, tags, preparationTime);
+        return foodItemRepository.findByAvailabilityAndFilters(available, name, minPrice, maxPrice, tags, preparationTime);
     }
 
-    
-    public FoodItem saveFood(FoodItemDto foodDto, String imagePath) {
+    public List<FoodItem> searchFoodsByUserId(Long userId, Boolean available, String name, Double minPrice, Double maxPrice,
+                                             Set<String> tags, String preparationTime) {
+        return foodItemRepository.findByUserIdAndFilters(userId, available, name, minPrice, maxPrice, tags, preparationTime);
+    }
+
+    public FoodItem saveFood(FoodItemDto foodDto, String imagePath, User user) {
         if (foodDto.getName() == null || foodDto.getPrice() == null || foodDto.getAvailable() == null) {
             throw new IllegalArgumentException("Name, price, and availability are required.");
         }
@@ -57,16 +59,15 @@ public class FoodItemService {
         food.setPreparationTime(foodDto.getPreparationTime());
         food.setTags(foodDto.getTags() != null ? new HashSet<>(foodDto.getTags()) : null);
         food.setDiscountPercentage(foodDto.getDiscountPercentage());
+        food.setUser(user);
 
         return foodItemRepository.save(food);
     }
 
- 
     public FoodItem saveFood(FoodItem food) {
         return foodItemRepository.save(food);
     }
 
- 
     public FoodItem findById(Long id) {
         return foodItemRepository.findById(id).orElse(null);
     }
@@ -75,12 +76,10 @@ public class FoodItemService {
         foodItemRepository.deleteById(id);
     }
 
-  
     public List<FoodItem> findByTag(String tag) {
         return foodItemRepository.findByTagsContaining(tag);
     }
 
-   
     public List<FoodItem> getAllByPriceAsc() {
         return foodItemRepository.findAllByOrderByPriceAsc();
     }

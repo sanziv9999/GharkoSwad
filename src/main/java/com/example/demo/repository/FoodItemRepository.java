@@ -32,4 +32,19 @@ public interface FoodItemRepository extends JpaRepository<FoodItem, Long> {
 
     @Query("SELECT f FROM FoodItem f WHERE f.discountPercentage IS NOT NULL ORDER BY f.discountPercentage DESC")
     List<FoodItem> findAllByOrderByDiscountPercentageDesc();
+
+    @Query("SELECT f FROM FoodItem f WHERE f.user.id = :userId AND (:available IS NULL OR f.available = :available) " +
+           "AND (:name IS NULL OR LOWER(f.name) LIKE LOWER(CONCAT(:name, '%'))) " +
+           "AND (:minPrice IS NULL OR f.price >= :minPrice) " +
+           "AND (:maxPrice IS NULL OR f.price <= :maxPrice) " +
+           "AND (:tags IS NULL OR EXISTS (SELECT 1 FROM f.tags t WHERE t IN :tags)) " +
+           "AND (:preparationTime IS NULL OR f.preparationTime = :preparationTime)")
+    List<FoodItem> findByUserIdAndFilters(
+            @Param("userId") Long userId,
+            @Param("available") Boolean available,
+            @Param("name") String name,
+            @Param("minPrice") Double minPrice,
+            @Param("maxPrice") Double maxPrice,
+            @Param("tags") Set<String> tags,
+            @Param("preparationTime") String preparationTime);
 }

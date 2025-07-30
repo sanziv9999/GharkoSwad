@@ -1,3 +1,4 @@
+
 package com.example.demo.restcontroller;
 
 import com.example.demo.dto.EmailRequestDto;
@@ -7,11 +8,13 @@ import com.example.demo.dto.ResetPasswordRequestDto;
 import com.example.demo.model.Otp;
 import com.example.demo.model.PendingUser;
 import com.example.demo.model.User;
+import com.example.demo.model.UserProfile;
 import com.example.demo.repository.OtpRepository;
 import com.example.demo.repository.PendingUserRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.service.EmailService;
 import com.example.demo.service.JwtService;
+import com.example.demo.service.UserService;
 import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -47,6 +50,9 @@ public class AuthRestController {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private UserService userService; // Add UserService dependency
+
     @PostMapping("/register")
     @Transactional
     public ResponseEntity<Map<String, Object>> initiateRegistration(@Valid @RequestBody User user, BindingResult result) {
@@ -69,7 +75,25 @@ public class AuthRestController {
             pendingUserRepo.deleteByEmail(user.getEmail());
         }
 
-        String role = user.getRole() != null && user.getRole().equals("CHEF") ? "CHEF" : "USER";
+        String role = "USER";
+        if (user.getRole() != null) {
+            switch (user.getRole().toUpperCase()) {
+                case "CHEF":
+                    role = "CHEF";
+                    break;
+                case "DELIVERY":
+                    role = "DELIVERY";
+                    break;
+                case "USER":
+                    role = "USER";
+                    break;
+                default:
+                    response.put("status", "error");
+                    response.put("message", "Invalid role. Allowed roles are USER, CHEF, or DELIVERY.");
+                    return ResponseEntity.badRequest().body(response);
+            }
+        }
+
         PendingUser pendingUser = new PendingUser(
             user.getEmail(),
             user.getUsername(),
@@ -195,14 +219,23 @@ public class AuthRestController {
         }
 
         String token = jwtService.generateToken(user.getEmail());
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("id", user.getId());
+        userData.put("username", user.getUsername());
+        userData.put("email", user.getEmail());
+        userData.put("role", user.getRole());
+        userData.put("phone", user.getPhoneNumber());
+        userData.put("location", user.getLocation());
+
+        // Fetch UserProfile
+        UserProfile profile = userService.findUserProfileByUserId(user.getId());
+        userData.put("profilePicture", profile != null ? profile.getProfilePicture() : null);
+        userData.put("coordinate", profile != null ? profile.getCoordinate() : null);
+        userData.put("description", profile != null ? profile.getDescription() : null);
+
         Map<String, Object> data = new HashMap<>();
         data.put("token", token);
-        data.put("user", Map.of(
-            "id", user.getId(),
-            "username", user.getUsername(),
-            "email", user.getEmail(),
-            "role", user.getRole()
-        ));
+        data.put("user", userData);
 
         response.put("status", "success");
         response.put("message", "Login successful");

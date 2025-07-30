@@ -1,8 +1,11 @@
 package com.example.demo.restcontroller;
 
 import com.example.demo.dto.FoodItemDto;
+import com.example.demo.dto.UserDto;
 import com.example.demo.model.FoodItem;
+import com.example.demo.model.User;
 import com.example.demo.service.FoodItemService;
+import com.example.demo.service.UserService;
 import com.example.demo.service.FileStorageService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -18,9 +21,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/food")
@@ -35,45 +43,131 @@ public class FoodItemRestController {
     private FileStorageService fileStorageService;
 
     @Autowired
+    private UserService userService;
+
+    @Autowired
     private Validator validator;
 
     @GetMapping("/list")
-    public ResponseEntity<List<FoodItem>> getAvailableFoods(
+    public ResponseEntity<Map<String, Object>> getAvailableFoods(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false) Set<String> tags,
+            @RequestParam(required = false) String tags,
             @RequestParam(required = false) String preparationTime) {
+        Map<String, Object> response = new HashMap<>();
         try {
-            List<FoodItem> foods = foodItemService.searchFoods(true, name, minPrice, maxPrice, tags, preparationTime);
-            if (foods.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(foods);
+            Set<String> tagsSet = null;
+            if (tags != null && !tags.trim().isEmpty()) {
+                tagsSet = Arrays.stream(tags.split(","))
+                        .map(String::trim)
+                        .filter(tag -> !tag.isEmpty())
+                        .collect(Collectors.toCollection(HashSet::new));
             }
-            return ResponseEntity.ok(foods);
+
+            List<FoodItem> foods = foodItemService.searchFoods(true, name, minPrice, maxPrice, tagsSet, preparationTime);
+
+            if (foods.isEmpty()) {
+                response.put("status", "success");
+                response.put("message", "No available food items found");
+                response.put("data", new ArrayList<>());
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
+            }
+
+            List<FoodItemDto> foodDtos = foods.stream()
+                    .map(food -> {
+                        FoodItemDto dto = new FoodItemDto();
+                        mapFoodToDto(food, dto);
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
+            response.put("status", "success");
+            response.put("message", "Food items retrieved successfully");
+            response.put("data", foodDtos);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error fetching available food items: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            response.put("status", "error");
+            response.put("message", "Failed to fetch food items: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    @GetMapping("/list/by-user")
+    public ResponseEntity<Map<String, Object>> getFoodsByUserId(
+            @RequestParam Long userId,
+            @RequestParam(required = false) Boolean available,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Double minPrice,
+            @RequestParam(required = false) Double maxPrice,
+            @RequestParam(required = false) String tags,
+            @RequestParam(required = false) String preparationTime) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            User user = userService.findById(userId);
+            if (user == null) {
+                logger.warn("User with id {} not found", userId);
+                response.put("status", "error");
+                response.put("message", "User not found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+
+            Set<String> tagsSet = tags != null ? new HashSet<>(List.of(tags.split(","))) : null;
+            List<FoodItem> foods = foodItemService.searchFoodsByUserId(userId, available, name, minPrice, maxPrice, tagsSet, preparationTime);
+            if (foods.isEmpty()) {
+                response.put("status", "success");
+                response.put("message", "No food items found for this user");
+                response.put("data", new ArrayList<>());
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
+            }
+
+            List<FoodItemDto> foodDtos = foods.stream()
+                    .map(food -> {
+                        FoodItemDto dto = new FoodItemDto();
+                        mapFoodToDto(food, dto);
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
+            response.put("status", "success");
+            response.put("message", "Food items retrieved successfully");
+            response.put("data", foodDtos);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error fetching food items for user id {}: {}", userId, e.getMessage());
+            response.put("status", "error");
+            response.put("message", "Failed to fetch food items: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
     @PostMapping(value = "/add", consumes = {"multipart/form-data"})
-    public ResponseEntity<?> addFood(
+    public ResponseEntity<Map<String, Object>> addFood(
             @RequestParam(value = "name") String name,
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "price", required = false) String price,
             @RequestParam(value = "originalPrice", required = false) String originalPrice,
             @RequestParam(value = "available") String available,
             @RequestParam(value = "preparationTime", required = false) String preparationTime,
-            @RequestParam(value = "tags", required = false) Set<String> tags,
+            @RequestParam(value = "tags", required = false) String tags,
             @RequestParam(value = "discountPercentage", required = false) String discountPercentage,
-            @RequestPart(value = "image", required = false) MultipartFile image) {
-        
+            @RequestPart(value = "image", required = false) MultipartFile image,
+            @RequestParam(value = "userId") Long userId) {
+        Map<String, Object> response = new HashMap<>();
         logger.info("Received add food request: name={}, description={}, price={}, originalPrice={}, available={}, " +
-                "preparationTime={}, tags={}, discountPercentage={}, image={}",
+                "preparationTime={}, tags={}, discountPercentage={}, image={}, userId={}",
                 name, description, price, originalPrice, available, preparationTime, tags, discountPercentage,
-                image != null ? image.getOriginalFilename() : "null");
+                image != null ? image.getOriginalFilename() : "null", userId);
 
-        // Create FoodItem instance
+        User user = userService.findById(userId);
+        if (user == null) {
+            logger.warn("User with id {} not found", userId);
+            response.put("status", "error");
+            response.put("message", "User not found");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        }
+
         FoodItem foodItem = new FoodItem();
         foodItem.setName(name);
         foodItem.setDescription(description != null ? description : "");
@@ -81,17 +175,26 @@ public class FoodItemRestController {
         if (originalPrice != null) foodItem.setOriginalPrice(parseDouble(originalPrice, "Original price", true));
         foodItem.setAvailable(parseBoolean(available, "Available"));
         foodItem.setPreparationTime(preparationTime != null ? preparationTime : "");
-        foodItem.setTags(tags != null ? new HashSet<>(tags) : new HashSet<>());
+        if (tags != null && !tags.trim().isEmpty()) {
+            foodItem.setTags(Arrays.stream(tags.split(","))
+                    .map(String::trim)
+                    .filter(tag -> !tag.isEmpty())
+                    .collect(Collectors.toCollection(HashSet::new)));
+        } else {
+            foodItem.setTags(new HashSet<>());
+        }
         if (discountPercentage != null) foodItem.setDiscountPercentage(parseDiscountPercentage(discountPercentage));
+        foodItem.setUser(user);
 
-        // Validate FoodItem
         Set<ConstraintViolation<FoodItem>> violations = validator.validate(foodItem);
         if (!violations.isEmpty()) {
             String errorMessage = violations.stream()
                     .map(v -> v.getPropertyPath() + ": " + v.getMessage())
                     .reduce((a, b) -> a + "; " + b).orElse("Validation failed");
             logger.warn("Validation errors: {}", violations);
-            return ResponseEntity.badRequest().body(errorMessage);
+            response.put("status", "error");
+            response.put("message", errorMessage);
+            return ResponseEntity.badRequest().body(response);
         }
 
         try {
@@ -105,26 +208,32 @@ public class FoodItemRestController {
             foodItem.setImagePath(imagePath);
             FoodItem savedFood = foodItemService.saveFood(foodItem);
 
-            // Map back to DTO for response
             FoodItemDto responseDto = new FoodItemDto();
             mapFoodToDto(savedFood, responseDto);
-            return ResponseEntity.ok(responseDto);
+            response.put("status", "success");
+            response.put("message", "Food item added successfully");
+            response.put("data", responseDto);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid input during image upload: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(e.getMessage());
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         } catch (IOException e) {
             logger.error("IO error during image upload: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to upload image: " + e.getMessage());
+            response.put("status", "error");
+            response.put("message", "Failed to upload image: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         } catch (Exception e) {
             logger.error("Error adding food item: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to add food item: " + e.getMessage());
+            response.put("status", "error");
+            response.put("message", "Failed to add food item: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
     @PatchMapping(value = "/update/{id}", consumes = {"multipart/form-data"})
-    public ResponseEntity<?> updateFood(
+    public ResponseEntity<Map<String, Object>> updateFood(
             @PathVariable Long id,
             @RequestParam(value = "name", required = false) String name,
             @RequestParam(value = "description", required = false) String description,
@@ -132,40 +241,57 @@ public class FoodItemRestController {
             @RequestParam(value = "originalPrice", required = false) String originalPrice,
             @RequestParam(value = "available", required = false) String available,
             @RequestParam(value = "preparationTime", required = false) String preparationTime,
-            @RequestParam(value = "tags", required = false) Set<String> tags,
+            @RequestParam(value = "tags", required = false) String tags,
             @RequestParam(value = "discountPercentage", required = false) String discountPercentage,
-            @RequestPart(value = "image", required = false) MultipartFile image) {
-        
+            @RequestPart(value = "image", required = false) MultipartFile image,
+            @RequestParam(value = "userId", required = false) Long userId) {
+        Map<String, Object> response = new HashMap<>();
         logger.info("Received update food request for id {}: name={}, description={}, price={}, originalPrice={}, available={}, " +
-                "preparationTime={}, tags={}, discountPercentage={}, image={}",
+                "preparationTime={}, tags={}, discountPercentage={}, image={}, userId={}",
                 id, name, description, price, originalPrice, available, preparationTime, tags, discountPercentage,
-                image != null ? image.getOriginalFilename() : "null");
+                image != null ? image.getOriginalFilename() : "null", userId);
 
-        // Fetch existing food item
         FoodItem existingFood = foodItemService.findById(id);
         if (existingFood == null) {
             logger.warn("Food item with id {} not found", id);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Food item not found");
+            response.put("status", "error");
+            response.put("message", "Food item not found");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         }
 
-        // Update existing FoodItem
         if (name != null) existingFood.setName(name);
         if (description != null) existingFood.setDescription(description);
         if (price != null) existingFood.setPrice(parseDouble(price, "Price"));
         if (originalPrice != null) existingFood.setOriginalPrice(parseDouble(originalPrice, "Original price", true));
         if (available != null) existingFood.setAvailable(parseBoolean(available, "Available"));
         if (preparationTime != null) existingFood.setPreparationTime(preparationTime);
-        if (tags != null) existingFood.setTags(new HashSet<>(tags));
+        if (tags != null && !tags.trim().isEmpty()) {
+            existingFood.setTags(Arrays.stream(tags.split(","))
+                    .map(String::trim)
+                    .filter(tag -> !tag.isEmpty())
+                    .collect(Collectors.toCollection(HashSet::new)));
+        }
         if (discountPercentage != null) existingFood.setDiscountPercentage(parseDiscountPercentage(discountPercentage));
+        if (userId != null) {
+            User user = userService.findById(userId);
+            if (user == null) {
+                logger.warn("User with id {} not found", userId);
+                response.put("status", "error");
+                response.put("message", "User not found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+            existingFood.setUser(user);
+        }
 
-        // Validate FoodItem
         Set<ConstraintViolation<FoodItem>> violations = validator.validate(existingFood);
         if (!violations.isEmpty()) {
             String errorMessage = violations.stream()
                     .map(v -> v.getPropertyPath() + ": " + v.getMessage())
                     .reduce((a, b) -> a + "; " + b).orElse("Validation failed");
             logger.warn("Validation errors: {}", violations);
-            return ResponseEntity.badRequest().body(errorMessage);
+            response.put("status", "error");
+            response.put("message", errorMessage);
+            return ResponseEntity.badRequest().body(response);
         }
 
         try {
@@ -188,37 +314,44 @@ public class FoodItemRestController {
             existingFood.setImagePath(newImagePath);
             FoodItem updatedFood = foodItemService.saveFood(existingFood);
 
-            // Map back to DTO for response
             FoodItemDto responseDto = new FoodItemDto();
             mapFoodToDto(updatedFood, responseDto);
-            return ResponseEntity.ok(responseDto);
+            response.put("status", "success");
+            response.put("message", "Food item updated successfully");
+            response.put("data", responseDto);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid input during image upload: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(e.getMessage());
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         } catch (IOException e) {
             logger.error("IO error during image upload: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to upload image: " + e.getMessage());
+            response.put("status", "error");
+            response.put("message", "Failed to upload image: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         } catch (Exception e) {
             logger.error("Error updating food item: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to update food item: " + e.getMessage());
+            response.put("status", "error");
+            response.put("message", "Failed to update food item: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
     @DeleteMapping("/delete/{id}")
-    public ResponseEntity<?> deleteFood(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> deleteFood(@PathVariable Long id) {
+        Map<String, Object> response = new HashMap<>();
         logger.info("Received delete food request for id {}", id);
 
-        // Fetch existing food item
         FoodItem existingFood = foodItemService.findById(id);
         if (existingFood == null) {
             logger.warn("Food item with id {} not found", id);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Food item not found");
+            response.put("status", "error");
+            response.put("message", "Food item not found");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         }
 
         try {
-            // Delete associated image if it exists
             if (existingFood.getImagePath() != null) {
                 Path imagePath = Paths.get("uploads/images/" + existingFood.getImagePath().replace("/images/", ""));
                 try {
@@ -228,85 +361,161 @@ public class FoodItemRestController {
                     logger.warn("Failed to delete image: {}", e.getMessage(), e);
                 }
             }
-            // Delete food item from database
             foodItemService.deleteById(id);
             logger.info("Food item with id {} deleted", id);
-            return ResponseEntity.ok().body("Food item deleted successfully");
+            response.put("status", "success");
+            response.put("message", "Food item deleted successfully");
+            response.put("data", null);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error deleting food item: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to delete food item: " + e.getMessage());
+            response.put("status", "error");
+            response.put("message", "Failed to delete food item: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<FoodItem>> searchFoods(
+    public ResponseEntity<Map<String, Object>> searchFoods(
             @RequestParam(required = false) Boolean available,
             @RequestParam(required = false) String startsWith,
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false) Set<String> tags,
+            @RequestParam(required = false) String tags,
             @RequestParam(required = false) String preparationTime) {
+        Map<String, Object> response = new HashMap<>();
         logger.info("Received search request: available={}, startsWith={}, minPrice={}, maxPrice={}, tags={}, preparationTime={}",
                 available, startsWith, minPrice, maxPrice, tags, preparationTime);
 
         try {
+            Set<String> tagsSet = tags != null ? new HashSet<>(List.of(tags.split(","))) : null;
             List<FoodItem> foods;
             if (available == null && startsWith == null && minPrice == null && maxPrice == null && tags == null && preparationTime == null) {
-                foods = foodItemService.getAllFoods(); // Fetch all if no filters
+                foods = foodItemService.getAllFoods();
             } else {
-                foods = foodItemService.searchFoods(available, startsWith, minPrice, maxPrice, tags, preparationTime);
+                foods = foodItemService.searchFoods(available, startsWith, minPrice, maxPrice, tagsSet, preparationTime);
             }
             if (foods.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(foods);
+                response.put("status", "success");
+                response.put("message", "No food items found");
+                response.put("data", new ArrayList<>());
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
             }
-            return ResponseEntity.ok(foods);
+
+            List<FoodItemDto> foodDtos = foods.stream()
+                    .map(food -> {
+                        FoodItemDto dto = new FoodItemDto();
+                        mapFoodToDto(food, dto);
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
+            response.put("status", "success");
+            response.put("message", "Food items retrieved successfully");
+            response.put("data", foodDtos);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error searching food items: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            response.put("status", "error");
+            response.put("message", "Failed to search food items: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
     @GetMapping("/tag")
-    public ResponseEntity<List<FoodItem>> findByTag(
+    public ResponseEntity<Map<String, Object>> findByTag(
             @RequestParam String tag) {
+        Map<String, Object> response = new HashMap<>();
         try {
             List<FoodItem> foods = foodItemService.findByTag(tag);
             if (foods.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(foods);
+                response.put("status", "success");
+                response.put("message", "No food items found with tag: " + tag);
+                response.put("data", new ArrayList<>());
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
             }
-            return ResponseEntity.ok(foods);
+
+            List<FoodItemDto> foodDtos = foods.stream()
+                    .map(food -> {
+                        FoodItemDto dto = new FoodItemDto();
+                        mapFoodToDto(food, dto);
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
+            response.put("status", "success");
+            response.put("message", "Food items retrieved successfully");
+            response.put("data", foodDtos);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error fetching food items by tag: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            response.put("status", "error");
+            response.put("message", "Failed to fetch food items by tag: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
     @GetMapping("/sort/price")
-    public ResponseEntity<List<FoodItem>> getAllByPriceAsc() {
+    public ResponseEntity<Map<String, Object>> getAllByPriceAsc() {
+        Map<String, Object> response = new HashMap<>();
         try {
             List<FoodItem> foods = foodItemService.getAllByPriceAsc();
             if (foods.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(foods);
+                response.put("status", "success");
+                response.put("message", "No food items found");
+                response.put("data", new ArrayList<>());
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
             }
-            return ResponseEntity.ok(foods);
+
+            List<FoodItemDto> foodDtos = foods.stream()
+                    .map(food -> {
+                        FoodItemDto dto = new FoodItemDto();
+                        mapFoodToDto(food, dto);
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
+            response.put("status", "success");
+            response.put("message", "Food items retrieved successfully");
+            response.put("data", foodDtos);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error sorting food items by price: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            response.put("status", "error");
+            response.put("message", "Failed to sort food items by price: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
     @GetMapping("/sort/discount")
-    public ResponseEntity<List<FoodItem>> getAllByDiscountPercentageDesc() {
+    public ResponseEntity<Map<String, Object>> getAllByDiscountPercentageDesc() {
+        Map<String, Object> response = new HashMap<>();
         try {
             List<FoodItem> foods = foodItemService.getAllByDiscountPercentageDesc();
             if (foods.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(foods);
+                response.put("status", "success");
+                response.put("message", "No food items found");
+                response.put("data", new ArrayList<>());
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
             }
-            return ResponseEntity.ok(foods);
+
+            List<FoodItemDto> foodDtos = foods.stream()
+                    .map(food -> {
+                        FoodItemDto dto = new FoodItemDto();
+                        mapFoodToDto(food, dto);
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
+            response.put("status", "success");
+            response.put("message", "Food items retrieved successfully");
+            response.put("data", foodDtos);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error sorting food items by discount: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            response.put("status", "error");
+            response.put("message", "Failed to sort food items by discount: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
@@ -360,14 +569,24 @@ public class FoodItemRestController {
     }
 
     private void mapFoodToDto(FoodItem food, FoodItemDto dto) {
+        dto.setId(food.getId());
         dto.setName(food.getName() != null ? food.getName() : "");
         dto.setDescription(food.getDescription() != null ? food.getDescription() : "");
         dto.setPrice(food.getPrice());
         dto.setOriginalPrice(food.getOriginalPrice());
-        dto.setAvailable(food.getAvailable());
+        dto.setAvailable(food.getAvailable() != null ? food.getAvailable() : false);
         dto.setImagePath(food.getImagePath() != null ? food.getImagePath() : "");
         dto.setPreparationTime(food.getPreparationTime() != null ? food.getPreparationTime() : "");
         dto.setTags(food.getTags() != null ? new HashSet<>(food.getTags()) : new HashSet<>());
-        dto.setDiscountPercentage(food.getDiscountPercentage());
+        dto.setDiscountPercentage(food.getDiscountPercentage() != null ? food.getDiscountPercentage() : 0.0);
+        if (food.getUser() != null) {
+            UserDto userDto = new UserDto();
+            userDto.setEmail(food.getUser().getEmail());
+            userDto.setUsername(food.getUser().getUsername());
+            userDto.setLocation(food.getUser().getLocation());
+            userDto.setPhoneNumber(food.getUser().getPhoneNumber());
+            // Note: Password is not mapped for security reasons
+            dto.setUser(userDto);
+        }
     }
 }
