@@ -92,7 +92,7 @@ esewa.sandbox.merchant_key=your_merchant_key
 Frontend
 Create a .env file in the frontend directory:
 REACT_APP_API_URL=http://localhost:8080/api
-REACT_APP_ESEWA_SANDBOX_URL=https://uat.esewa.com.np/epay/main
+REACT_APP_ESEWA_SANDBOX_URL=https://epay.esewa.com.np/api/epay/main/v2/form
 
 Usage
 
