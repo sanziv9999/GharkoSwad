@@ -1,125 +1,229 @@
-GharkoSwad
-A niche food delivery and social engagement platform in Nepal focused on homecooked meals and interactive food feeds, addressing key user pain points like delivery delays and app performance.
-Overview
-GharkoSwad is a comprehensive platform combining a robust backend framework and an intuitive frontend interface. Built with Spring Boot, the backend offers a secure, scalable, and maintainable architecture that handles user management, order processing, media storage, and social interactions seamlessly. The frontend, built with React.js, provides a responsive and interactive user experience, showcasing homecooked meals and fostering community engagement.
-Why GharkoSwad?
-This project aims to streamline the development of food-centric applications with a robust, modular backend. The core features include:
+# GharkoSwad
 
-Security & Authentication: JWT tokens, OTP verification, role-based access control.
-Modular REST APIs: Controllers for food management, orders, payments, user profiles, and media access.
-Business Logic Layer: Services managing orders, carts, payments, and user data.
-Media Handling: Secure storage and retrieval of images and videos.
-Social Features: Food feeds, comments, likes, fostering community engagement.
-Scalable Architecture: Organized repositories and DTOs for maintainability and growth.
+### A food delivery and social engagement platform in Nepal focused on home-cooked meals and interactive food feeds.
 
-Tech Stack
-Backend
+## Overview
 
-Framework: Spring Boot
-Build Tool: Maven
-Database: MySQL
-Security: JWT, OTP
-API: RESTful with Spring MVC
-Payment: eSewa (sandbox for development)
+GharkoSwad is a unique platform that addresses common food delivery issues in Nepal, like delays and poor app performance. It combines a robust **Spring Boot** backend with a responsive **React.js** frontend to deliver a seamless food delivery and social engagement experience. The backend ensures secure and scalable management of users, orders, and payments, while the frontend offers an an interactive food feed and real-time delivery tracking.
 
-Frontend
+## Key Features
 
-Framework: React.js
-Styling: CSS Modules / Tailwind CSS
-State Management: Redux or Context API
-Mapping: Leaflet.js for map and delivery tracking
-API Integration: Axios or Fetch
-Build Tool: Vite or Create React App
+GharkoSwad streamlines food-centric app development with a modular and secure backend. Key features include:
 
-Getting Started
-Prerequisites
+* **Security & Authentication:** Implements JWT tokens for secure API access, OTP verification for user trust, and role-based access control to manage permissions.
 
-Backend: Java 11+, Maven, MySQL
-Frontend: npm or yarn (for building the React.js app)
+* **Modular REST APIs:** Provides well-organized controllers for food, orders, payments, user profiles, and media.
 
-Installation
-Backend
+* **Business Logic:** Handles core services for orders, carts, and user data.
 
-Clone the repository:git clone https://github.com/sanziv9999/GharkoSwad.git
+* **Media Handling:** Enables secure storage and retrieval of images and videos.
+
+* **Social Features:** Includes an interactive food feed with features like comments and likes to foster community engagement.
+
+* **Scalable Architecture:** Designed with organized repositories and DTOs to support future growth.
+
+## Tech Stack
+
+### Backend
+
+* **Framework:** Spring Boot
+
+* **Build Tool:** Maven
+
+* **Database:** MySQL
+
+* **Security:** JWT, OTP
+
+* **API:** RESTful with Spring MVC
+
+* **Payment:** eSewa (sandbox for development)
+
+### Frontend
+
+* **Framework:** React.js
+
+* **Styling:** CSS Modules / Tailwind CSS
+
+* **State Management:** Redux or Context API
+
+* **Mapping:** Leaflet.js (for delivery and location tracking)
+
+* **API Integration:** Axios or Fetch
+
+* **Build Tool:** Vite or Create React App
+
+## Getting Started
+
+### Prerequisites
+
+* **Backend:** Java 11+, Maven, MySQL
+
+* **Frontend:** npm or yarn
+
+### Installation
+
+#### Backend
+
+1. Clone the repository:
+
+   ```
+   git clone [https://github.com/sanziv9999/GharkoSwad.git](https://github.com/sanziv9999/GharkoSwad.git)
+   
+   
+   ```
+
+2. Navigate to the backend directory:
+
+   ```
+   cd GharkoSwad/backend
+   
+   
+   ```
+
+3. Install dependencies and set up the database:
+
+   * Configure `application.properties` with your MySQL details and email/password for mail sending.
+
+   * Run any database migrations or scripts provided.
+
+4. Start the server:
+
+   ```
+   mvn spring-boot:run
+   
+   
+   ```
+
+#### Frontend
+
+1. Navigate to the frontend directory:
+
+   ```
+   cd GharkoSwad/frontend
+   
+   
+   ```
+
+2. Install dependencies:
+
+   ```
+   npm install
+   
+   
+   ```
+
+   or
+
+   ```
+   yarn install
+   
+   
+   ```
+
+3. Start the development server:
+
+   ```
+   npm start
+   
+   
+   ```
+
+   or
+
+   ```
+   yarn start
+   
+   
+   ```
+
+   Open your browser and visit `http://localhost:3000` to view the app. The frontend will automatically connect to the backend at `http://localhost:8080/api`.
+
+## Environment Variables
+
+### Backend
+
+Create `application.properties` in `backend/src/main/resources`. Note that the values with `${...}` are environment variables that you will need to define on your system or in your IDE's run configuration.
+
+```
+spring.application.name=gharkoswad
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+spring.datasource.url=jdbc:mysql://localhost:3306/gharkoswad?createDatabaseIfNotExist=true
+spring.datasource.username=root
+spring.datasource.password=
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.threads.virtual.enabled=true
 
 
-Navigate to the backend directory:cd GharkoSwad/backend
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=${MAIL_USERNAME}
+spring.mail.password=${MAIL_PASSWORD}
+spring.mail.properties.mail.smtp.autSEDCh=true
+spring.mail.properties.mail.smtp.starttls.enable=true
 
 
-Install dependencies and set up the database:
-Configure application.properties with MySQL details.
-Run database migrations or scripts if provided.
+jwt.secret=${JWT_SECRET}
+jwt.expiration=${JWT_EXPIRATION} 
 
 
-Start the server:mvn spring-boot:run
+spring.servlet.multipart.enabled=true
+spring.servlet.multipart.max-file-size=50MB
+spring.servlet.multipart.max-request-size=50MB
 
+spring.web.resources.static-locations=classpath:/static/,classpath:/public/,classpath:/resources/,classpath:/uploads/images/
 
+```
 
-Frontend
+### Frontend
 
-Navigate to the frontend directory:
-cd GharkoSwad/frontend
+Create a `.env` file in the frontend directory:
 
-
-Install dependencies:
-npm install
-
-or
-yarn install
-
-
-Start the development server:
-npm start
-
-or
-yarn start
-
-
-Open your browser and visit http://localhost:3000 to view the app. The frontend will connect to the backend at http://localhost:8080/api.
-
-
-Environment Variables
-Backend
-Create application.properties in backend/src/main/resources:
-server.port=8080
-spring.datasource.url=jdbc:mysql://localhost:3306/gharkoswad
-spring.datasource.username=your_username
-spring.datasource.password=your_password
-jwt.secret=your_jwt_secret_key
-esewa.sandbox.merchant_code=your_merchant_code
-esewa.sandbox.merchant_key=your_merchant_key
-
-Frontend
-Create a .env file in the frontend directory:
+```
 REACT_APP_API_URL=http://localhost:8080/api
-REACT_APP_ESEWA_SANDBOX_URL=https://epay.esewa.com.np/api/epay/main/v2/form
+REACT_APP_ESEWA_SANDBOX_URL=[https://epay.esewa.com.np/api/epay/main/v2/form](https://epay.esewa.com.np/api/epay/main/v2/form)
 
-Usage
+```
 
-Backend: Manages API endpoints for meal listings, order processing, user authentication, media handling, and eSewa payment integration. Test APIs using tools like Postman.
-Frontend: Browse the interactive food feed, place orders, track deliveries with Leaflet.js maps, and process payments via eSewa sandbox. Engage with the community via likes and comments.
+## Usage
 
-API Endpoints (Backend)
+* **Backend:** Manages API endpoints for meal listings, order processing, user authentication, media handling, and eSewa payment integration. You can test these APIs using tools like Postman.
 
-GET /api/meals: Retrieve available meals.
-POST /api/orders: Create a new order.
-POST /api/auth/register: Register a user.
-POST /api/auth/login: Authenticate a user.
-GET /api/feed: Fetch the interactive food feed.
-POST /api/payments/esewa: Initiate eSewa payment (sandbox).
+* **Frontend:** Browse the interactive food feed, place orders, track deliveries with Leaflet.js maps, and process payments via the eSewa sandbox. You can also engage with the community through likes and comments.
 
-Contributing
-Contributions are welcome! To contribute:
+## API Endpoints (Backend)
 
-Fork the repository.
-Create a new branch (git checkout -b feature-branch).
-Make your changes and commit them (git commit -m 'Add new feature').
-Push to the branch (git push origin feature-branch).
-Open a pull request.
+* `GET /api/meals`: Retrieve available meals.
+
+* `POST /api/orders`: Create a new order.
+
+* `POST /api/auth/register`: Register a new user.
+
+* `POST /api/auth/login`: Authenticate a user.
+
+* `GET /api/feed`: Fetch the interactive food feed.
+
+* `POST /api/payments/esewa`: Initiate eSewa payment (sandbox) to the V2 form endpoint.
+
+## Contributing
+
+We welcome contributions! To contribute:
+
+1. Fork the repository.
+
+2. Create a new branch: `git checkout -b feature-branch`
+
+3. Make your changes and commit them: `git commit -m 'Add new feature'`
+
+4. Push to the branch: `git push origin feature-branch`
+
+5. Open a pull request.
 
 Please ensure your code adheres to the project's coding standards and includes relevant documentation.
 
-Contact
-For questions or feedback, reach out via GitHub Issues.
+## Contact
+
+For questions or feedback, please reach out via **GitHub Issues**.
 
 Built with love for Nepalese cuisine and seamless user experiences.
