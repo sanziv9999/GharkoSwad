@@ -67,7 +67,7 @@ GharkoSwad streamlines food-centric app development with a modular and secure ba
 1. Clone the repository:
 
    ```
-   git clone [https://github.com/sanziv9999/GharkoSwad.git](https://github.com/sanziv9999/GharkoSwad.git)
+   git clone https://github.com/sanziv9999/GharkoSwad.git
    
    
    ```
@@ -182,8 +182,7 @@ Create a `.env` file in the frontend directory:
 
 ```
 REACT_APP_API_URL=http://localhost:8080/api
-REACT_APP_ESEWA_SANDBOX_URL=[https://epay.esewa.com.np/api/epay/main/v2/form](https://epay.esewa.com.np/api/epay/main/v2/form)
-
+REACT_APP_ESEWA_SANDBOX_URL=https://epay.esewa.com.np/api/epay/main/v2/form
 ```
 
 ## Usage
